@@ -44,7 +44,7 @@
 
 ### 2.1 방장 (Host)
 1. 메인 페이지 진입 → "약속 만들기" 버튼
-2. **로그인 필요** (Supabase Auth, 일단 Google OAuth 하나만)
+2. **로그인 필요** (Supabase Auth, 이메일/비밀번호. 이메일 인증 비활성화로 즉시 사용)
 3. 약속 생성 폼:
    - 약속 제목 (예: "12월 커플 모임")
    - 후보 날짜 범위 (캘린더에서 선택, 또는 시작일~종료일)
@@ -174,7 +174,7 @@ create policy "availabilities_delete_all" on availabilities
 ```
 app/
 ├── page.tsx                      # 랜딩 (소개 + "약속 만들기")
-├── login/page.tsx                # 로그인 (Google OAuth)
+├── login/page.tsx                # 로그인 + 가입 (이메일/비번, 단일 페이지 토글)
 ├── new/page.tsx                  # 약속 생성 폼 (auth 필요)
 ├── m/[meetingId]/
 │   ├── page.tsx                  # 참여자 진입 화면 (이름 선택 → 입력)
@@ -376,7 +376,7 @@ function getIntersection(
 ## 7. MVP 범위 (포함/제외)
 
 ### ✅ 포함
-- 방장 Google 로그인
+- 방장 이메일/비번 가입·로그인 (이메일 verify OFF)
 - 약속 생성 (제목, 날짜 범위, 참여자 명단)
 - 공유 URL
 - 참여자 이름 선택 + **본인 색상 선택**
@@ -404,6 +404,7 @@ function getIntersection(
 - 무료 슬롯 1개 여유 → 약속잡기 프로젝트 새로 생성 OK
 - 리전: Northeast Asia (Seoul) 추천
 - 7월 31일 전에 nwejin's Project 다시 살리고 싶어지면 그 때 슬롯 정리
+- Authentication → Providers → Email → "Confirm email" 토글 OFF (이메일 인증 없이 즉시 로그인)
 
 ---
 
@@ -413,7 +414,7 @@ function getIntersection(
 2. Supabase 프로젝트 생성 + 위 SQL 적용 + RLS 정책 적용
 3. Supabase 클라이언트 (browser/server) 설정 + 환경변수
 4. **TanStack Query 셋업** (`@tanstack/react-query` 설치, `QueryClientProvider` 루트에 래핑, devtools)
-5. Google OAuth 셋업 (Supabase Auth)
+5. 이메일/비번 가입·로그인 페이지 + 보호 라우트 (`/new`만 auth 필요)
 6. 랜딩 + 로그인 페이지
 7. 약속 생성 폼 (`/new`)
 8. **참여자 진입 화면** (`/m/[id]`) — 이름 선택 → 색상 선택 → 입장
