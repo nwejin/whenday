@@ -40,3 +40,13 @@ export async function pickColor(input: {
   revalidatePath(`/m/${input.meetingId}`, "layout");
   redirect(`/m/${input.meetingId}/result`);
 }
+
+export async function leaveAsCurrentParticipant(formData: FormData) {
+  const meetingId = formData.get("meetingId");
+  if (typeof meetingId !== "string" || !meetingId) return;
+
+  const cookieStore = await cookies();
+  cookieStore.delete(participantCookieKey(meetingId));
+
+  revalidatePath(`/m/${meetingId}`, "layout");
+}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import { Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { participantCookieKey } from "@/lib/colors";
 import { SelectCalendar } from "./select-calendar";
@@ -37,7 +38,6 @@ export default async function MeetingSelectPage({
     (p) => p.id === currentParticipantId,
   );
 
-  // 입장(색상 선택) 안 한 사용자는 입장 화면으로
   if (!currentParticipant || !currentParticipant.color) {
     redirect(`/m/${meetingId}`);
   }
@@ -52,42 +52,55 @@ export default async function MeetingSelectPage({
       : { data: [] };
 
   return (
-    <main className="flex flex-1 justify-center px-4 py-8">
-      <div className="w-full max-w-md space-y-6">
-        <header className="space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight">{meeting.title}</h1>
-          <p className="text-sm text-gray-500">
+    <main className="flex h-dvh flex-col bg-canvas">
+      <header className="shrink-0 border-b border-hairline-soft bg-canvas">
+        <div className="mx-auto w-full max-w-md px-4 pt-6 pb-4">
+          <h1 className="text-2xl font-bold tracking-tight text-ink-deep">
+            {meeting.title}
+          </h1>
+          <p className="mt-1 text-sm text-slate">
             가능한 날짜를 모두 탭해서 선택해주세요
           </p>
-          <div className="flex items-center gap-2 pt-1">
+          <div className="mt-3 flex items-center gap-2">
             <span
-              className="h-4 w-4 shrink-0 rounded-full border border-gray-200"
-              style={{
-                backgroundColor: currentParticipant.color ?? "transparent",
-              }}
+              className="h-4 w-4 shrink-0 rounded-full border border-hairline-soft"
+              style={{ backgroundColor: currentParticipant.color }}
+              aria-hidden
             />
-            <span className="text-sm font-medium text-gray-900">
+            <span className="text-sm font-semibold text-ink-deep">
               {currentParticipant.name}
             </span>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <SelectCalendar
-          meetingId={meeting.id}
-          dateRangeStart={meeting.date_range_start}
-          dateRangeEnd={meeting.date_range_end}
-          participants={participants ?? []}
-          currentParticipantId={currentParticipant.id}
-          initialAvailabilities={availabilities ?? []}
-        />
+      <section className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-md px-4 py-4 pb-6">
+          <SelectCalendar
+            meetingId={meeting.id}
+            dateRangeStart={meeting.date_range_start}
+            dateRangeEnd={meeting.date_range_end}
+            participants={participants ?? []}
+            currentParticipantId={currentParticipant.id}
+            initialAvailabilities={availabilities ?? []}
+          />
+        </div>
+      </section>
 
-        <Link
-          href={`/m/${meeting.id}/result`}
-          className="block rounded-2xl border border-gray-200 px-4 py-3 text-center text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+      <footer className="shrink-0 border-t border-hairline-soft bg-canvas">
+        <div
+          className="mx-auto w-full max-w-md px-4 pt-4"
+          style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}
         >
-          결과 화면 보기
-        </Link>
-      </div>
+          <Link
+            href={`/m/${meeting.id}/result`}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-ink-deep px-6 py-4 text-base font-bold text-canvas transition active:bg-charcoal"
+          >
+            <Check className="h-5 w-5" />
+            <span>다 골랐어요</span>
+          </Link>
+        </div>
+      </footer>
     </main>
   );
 }

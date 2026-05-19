@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { addDays, format } from "date-fns";
 import { createMeeting } from "./actions";
 
-const MAX_PARTICIPANTS = 8;
+const MAX_PARTICIPANTS = 10;
 const MIN_PARTICIPANTS = 2;
 
 type Participant = {

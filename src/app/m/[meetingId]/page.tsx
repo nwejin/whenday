@@ -1,8 +1,10 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { participantCookieKey } from "@/lib/colors";
 import { EnterForm } from "./enter-form";
+import { EnterHeader } from "./enter-header";
+import { AlreadyEntered } from "./already-entered";
 
 type Params = Promise<{ meetingId: string }>;
 
@@ -28,26 +30,28 @@ export default async function MeetingEnterPage({
     .eq("meeting_id", meetingId)
     .order("display_order", { ascending: true });
 
-  // 이미 색상까지 고른 사용자면 result로 바로 이동
   const cookieStore = await cookies();
   const existingId = cookieStore.get(participantCookieKey(meetingId))?.value;
   const existing = (participants ?? []).find((p) => p.id === existingId);
-  if (existing?.color) {
-    redirect(`/m/${meetingId}/result`);
-  }
+  const isAlreadyEntered = Boolean(existing?.color);
 
   return (
-    <main className="flex flex-1 justify-center px-4 py-8">
-      <div className="w-full max-w-md space-y-6">
-        <header className="space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight">{meeting.title}</h1>
-          <p className="text-sm text-gray-500">
-            본인 이름과 색상을 선택해주세요
-          </p>
-        </header>
-
+    <main className="flex h-dvh flex-col bg-canvas">
+      <EnterHeader
+        title={meeting.title}
+        subtitle={
+          isAlreadyEntered ? undefined : "본인 이름과 색상을 선택해주세요"
+        }
+      />
+      {isAlreadyEntered && existing ? (
+        <AlreadyEntered
+          meetingId={meeting.id}
+          name={existing.name}
+          color={existing.color as string}
+        />
+      ) : (
         <EnterForm meetingId={meeting.id} participants={participants ?? []} />
-      </div>
+      )}
     </main>
   );
 }

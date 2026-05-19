@@ -16,8 +16,8 @@ function validate(input: CreateMeetingInput): string | null {
   if (input.title.length > 50) return "제목은 50자 이하여야 합니다";
   if (input.participants.length < 2)
     return "참여자는 최소 2명이어야 합니다";
-  if (input.participants.length > 8)
-    return "참여자는 최대 8명까지 등록할 수 있어요";
+  if (input.participants.length > 10)
+    return "참여자는 최대 10명까지 등록할 수 있어요";
   if (new Set(input.participants).size !== input.participants.length)
     return "참여자 이름이 중복됩니다";
   if (input.dateRangeStart > input.dateRangeEnd)
