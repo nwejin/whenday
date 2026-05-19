@@ -46,8 +46,8 @@ export function CellDetailSheet({
     >
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 z-40 bg-black/40" />
-        <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 mt-24 flex max-h-[85vh] flex-col rounded-t-2xl bg-white outline-none">
-          <div className="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-gray-300" />
+        <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 mt-24 flex max-h-[85vh] flex-col rounded-t-2xl bg-canvas outline-none">
+          <div className="mx-auto mt-3 h-1 w-12 shrink-0 rounded-full bg-stone" />
           {selectedDate && (
             <SheetBody
               selectedDate={selectedDate}
@@ -103,10 +103,10 @@ function SheetBody({
   return (
     <div className="flex-1 overflow-auto p-6">
       <div className="space-y-1 pb-6">
-        <Drawer.Title className="text-xl font-bold text-gray-900">
+        <Drawer.Title className="text-xl font-bold text-ink-deep">
           {formattedDate}
         </Drawer.Title>
-        <Drawer.Description className="text-sm text-gray-500">
+        <Drawer.Description className="text-sm text-slate">
           {available.length}/{participants.length} 가능
           {isAllAvailable && " · 모두 가능 ⭐"}
           {isConfirmedDate && " · 확정됨 ✓"}
@@ -153,7 +153,7 @@ function SheetBody({
             type="button"
             onClick={() => onConfirm(selectedDate)}
             disabled={!isAllAvailable || isConfirming}
-            className="block w-full rounded-2xl bg-gray-900 px-6 py-4 text-base font-medium text-white transition hover:bg-gray-800 active:bg-gray-700 disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-ink-deep px-6 py-4 text-base font-bold text-canvas transition active:bg-charcoal disabled:opacity-40"
           >
             {isConfirming
               ? "확정 중..."
@@ -176,7 +176,7 @@ function Section({
 }) {
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-gray-400">
+      <h3 className="text-xs font-medium uppercase tracking-wide text-stone">
         {title}
       </h3>
       <ul className="space-y-1.5">{children}</ul>
@@ -196,16 +196,16 @@ function Row({
   return (
     <li className="flex items-center gap-3">
       <span
-        className="h-4 w-4 shrink-0 rounded-full border border-gray-200"
+        className="h-4 w-4 shrink-0 rounded-full border border-hairline-soft"
         style={{ backgroundColor: colorHex ?? "transparent" }}
       />
       <span
         className={
           variant === "available"
-            ? "text-sm font-medium text-gray-900"
+            ? "text-sm font-medium text-ink-deep"
             : variant === "unavailable"
-              ? "text-sm text-gray-500 line-through"
-              : "text-sm text-gray-400"
+              ? "text-sm text-slate line-through"
+              : "text-sm text-stone"
         }
       >
         {name}

@@ -41,7 +41,8 @@ type Props = {
 } & (SelectMode | ResultMode);
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
-const EMPTY_SLOT_COLOR = "#F3F4F6";
+const EMPTY_SLOT_COLOR = "var(--color-surface-soft)";
+const PARTICIPANT_FALLBACK_COLOR = "var(--color-stone)";
 
 type DragState = {
   fillMode: "add" | "remove";
@@ -131,11 +132,11 @@ export function Calendar(props: Props) {
           onClick={goPrev}
           disabled={!canGoPrev}
           aria-label="이전 달"
-          className="rounded-lg px-3 py-2 text-gray-600 transition hover:bg-gray-100 disabled:opacity-30"
+          className="rounded-xl px-3 py-2 text-charcoal transition active:bg-surface-soft disabled:opacity-30"
         >
           ←
         </button>
-        <h2 className="text-base font-semibold text-gray-900">
+        <h2 className="text-base font-semibold text-ink-deep">
           {format(viewMonth, "yyyy년 M월")}
         </h2>
         <button
@@ -143,7 +144,7 @@ export function Calendar(props: Props) {
           onClick={goNext}
           disabled={!canGoNext}
           aria-label="다음 달"
-          className="rounded-lg px-3 py-2 text-gray-600 transition hover:bg-gray-100 disabled:opacity-30"
+          className="rounded-xl px-3 py-2 text-charcoal transition active:bg-surface-soft disabled:opacity-30"
         >
           →
         </button>
@@ -153,7 +154,7 @@ export function Calendar(props: Props) {
         {WEEKDAYS.map((day) => (
           <div
             key={day}
-            className="py-2 text-center text-xs font-medium text-gray-400"
+            className="py-2 text-center text-xs font-medium text-stone"
           >
             {day}
           </div>
@@ -161,7 +162,7 @@ export function Calendar(props: Props) {
       </div>
 
       <div
-        className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-gray-200 bg-gray-200"
+        className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-hairline-soft bg-hairline-soft"
         onPointerMove={isSelectMode ? handleGridPointerMove : undefined}
         onPointerUp={isSelectMode ? endDrag : undefined}
         onPointerCancel={isSelectMode ? endDrag : undefined}
@@ -170,7 +171,7 @@ export function Calendar(props: Props) {
       >
         {cells.map((date, idx) => {
           if (!date) {
-            return <div key={idx} className="aspect-square bg-gray-50" />;
+            return <div key={idx} className="aspect-square bg-surface-soft" />;
           }
           const inRange = date >= startDate && date <= endDate;
           const dateKey = format(date, "yyyy-MM-dd");
@@ -193,8 +194,8 @@ export function Calendar(props: Props) {
           );
 
           const baseCellClass = inRange
-            ? "aspect-square bg-white"
-            : "aspect-square bg-gray-50 opacity-40";
+            ? "aspect-square bg-canvas"
+            : "aspect-square bg-surface-soft opacity-40";
 
           if (inRange && props.mode === "select") {
             return (
@@ -206,7 +207,7 @@ export function Calendar(props: Props) {
                   e.preventDefault();
                   handleCellPointerDown(dateKey);
                 }}
-                className={`${baseCellClass} text-left transition active:bg-gray-100`}
+                className={`${baseCellClass} text-left transition active:bg-surface-soft`}
               >
                 {cellContent}
               </button>
@@ -220,7 +221,7 @@ export function Calendar(props: Props) {
                 key={idx}
                 type="button"
                 onClick={() => onCellClick(dateKey)}
-                className={`${baseCellClass} text-left transition active:bg-gray-100`}
+                className={`${baseCellClass} text-left transition active:bg-surface-soft`}
               >
                 {cellContent}
               </button>
@@ -258,7 +259,7 @@ function CellContent({
       <div className="flex items-start justify-between">
         <span
           className={
-            inRange ? "text-xs text-gray-700" : "text-xs text-gray-400"
+            inRange ? "text-xs text-ink" : "text-xs text-stone"
           }
         >
           {date.getDate()}
@@ -281,7 +282,7 @@ function CellContent({
                 className="min-h-0.75 flex-1 rounded-[1px]"
                 style={{
                   backgroundColor: isAvailable
-                    ? (p.color ?? "#94A3B8")
+                    ? (p.color ?? PARTICIPANT_FALLBACK_COLOR)
                     : EMPTY_SLOT_COLOR,
                   opacity: isDimmed ? 0.4 : 1,
                 }}
