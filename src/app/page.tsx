@@ -1,58 +1,71 @@
 import Link from "next/link";
+import { Plus } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { HostHeader } from "./_home/host-header";
+import { MeetingCard } from "./_home/meeting-card";
 
-const steps = [
-  {
-    n: 1,
-    title: "약속과 참여자 등록",
-    desc: "제목, 후보 날짜, 참여자 명단 입력",
-  },
-  {
-    n: 2,
-    title: "링크 공유",
-    desc: "참여자에게 공유 URL 전달",
-  },
-  {
-    n: 3,
-    title: "가능한 날짜 확인",
-    desc: "모두가 가능한 날짜를 한눈에",
-  },
-];
+export default async function Home() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-export default function Home() {
+  // 미들웨어가 보호하므로 여기 도달 시점에 user는 존재하지만 안전망
+  if (!user) return null;
+
+  const { data: meetings } = await supabase
+    .from("meetings")
+    .select("id, title, date_range_start, date_range_end, confirmed_date")
+    .eq("host_id", user.id)
+    .order("created_at", { ascending: false });
+
+  const hasMeetings = !!meetings && meetings.length > 0;
+
   return (
-    <main className="flex flex-1 items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md space-y-12">
-        <header className="space-y-3 text-center">
-          <h1 className="text-5xl font-bold tracking-tight">whenday</h1>
-          <p className="text-base leading-relaxed text-gray-600">
-            여러 명의 약속을 한 번에
-          </p>
-        </header>
+    <main className="flex h-[100dvh] flex-col bg-canvas">
+      <HostHeader />
 
-        <Link
-          href="/new"
-          className="block w-full rounded-2xl bg-gray-900 px-6 py-4 text-center text-base font-medium text-white transition hover:bg-gray-800 active:bg-gray-700"
+      <section className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-md px-4 py-6">
+          {hasMeetings ? (
+            <div className="grid grid-cols-2 gap-3">
+              {meetings.map((m) => (
+                <MeetingCard key={m.id} meeting={m} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState />
+          )}
+        </div>
+      </section>
+
+      <footer className="shrink-0 border-t border-hairline-soft bg-canvas">
+        <div
+          className="mx-auto w-full max-w-md px-4 pt-4"
+          style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}
         >
-          약속 만들기
-        </Link>
-
-        <ol className="space-y-3">
-          {steps.map(({ n, title, desc }) => (
-            <li
-              key={n}
-              className="flex gap-4 rounded-xl border border-gray-100 bg-white p-4"
-            >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-900 text-sm font-semibold text-white">
-                {n}
-              </span>
-              <div className="space-y-0.5">
-                <p className="text-sm font-semibold text-gray-900">{title}</p>
-                <p className="text-sm text-gray-500">{desc}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </div>
+          <Link
+            href="/new"
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-ink-deep px-6 py-4 text-base font-bold text-canvas transition active:bg-charcoal"
+          >
+            <Plus className="h-5 w-5" />
+            <span>약속 만들기</span>
+          </Link>
+        </div>
+      </footer>
     </main>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 text-center">
+      <p className="text-sm font-semibold text-ink-deep">
+        아직 만든 약속이 없어요
+      </p>
+      <p className="mt-1 text-xs text-stone">
+        하단 버튼으로 첫 약속을 만들어보세요
+      </p>
+    </div>
   );
 }

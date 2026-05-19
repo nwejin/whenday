@@ -49,3 +49,11 @@ export async function signUp(formData: FormData) {
   revalidatePath("/", "layout");
   redirect(redirectTo);
 }
+
+export async function signOut() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  revalidatePath("/", "layout");
+  // 미들웨어가 "/" 보호하므로 자동으로 /login으로 리다이렉트됨
+  redirect("/");
+}

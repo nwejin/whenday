@@ -1,25 +1,49 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Font */
+  --font-sans: var(--font-pretendard);
+
+  /* Surface */
+  --color-canvas: #ffffff;
+  --color-surface-soft: #f0f2f5;
+  --color-hairline: #dadde1;
+  --color-hairline-soft: #e4e6eb;
+
+  /* Text */
+  --color-ink-deep: #14161a;
+  --color-ink: #1c1e21;
+  --color-charcoal: #44464a;
+  --color-slate: #65686c;
+  --color-steel: #8a8d91;
+  --color-stone: #bcbec0;
+
+  /* Brand (정의만 — 마케팅 표면에서는 사용 X) */
+  --color-primary: #0866ff;
+  --color-primary-deep: #0143b5;
+
+  /* Semantic */
+  --color-success: #31a24c;
+  --color-attention: #f7b928;
+  --color-warning: #f0db4f;
+  --color-critical: #e0245e;
+
+  /* Radius (Design.md 매핑) */
+  --radius-xl: 1rem;     /* 16px — feature 카드, FAQ */
+  --radius-2xl: 1.5rem;  /* 24px — warranty/accessory */
+  --radius-3xl: 2rem;    /* 32px — 사진형 카드, promo strip */
+  --radius-4xl: 2.5rem;  /* 40px — accessory hero */
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-canvas);
+  color: var(--color-ink-deep);
   font-family:
-    var(--font-geist-sans),
+    var(--font-pretendard),
     -apple-system,
     BlinkMacSystemFont,
     "Apple SD Gothic Neo",
     "Noto Sans KR",
     sans-serif;
+  letter-spacing: -0.01em;
 }

@@ -1,7 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_PATHS = ["/new"];
+// 정확히 일치해야 하는 보호 라우트 (자식 경로는 보호 안 함)
+const PROTECTED_EXACT = new Set(["/"]);
+// 자식 경로까지 보호하는 라우트
+const PROTECTED_PREFIX = ["/new"];
+
+function isProtected(pathname: string): boolean {
+  if (PROTECTED_EXACT.has(pathname)) return true;
+  return PROTECTED_PREFIX.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
+}
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -35,15 +45,10 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // 미로그인 사용자가 보호 라우트 접근 시 /login으로
-  if (
-    !user &&
-    PROTECTED_PATHS.some(
-      (p) => pathname === p || pathname.startsWith(p + "/"),
-    )
-  ) {
+  if (!user && isProtected(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("redirect", pathname);
+    if (pathname !== "/") url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
   }
 
