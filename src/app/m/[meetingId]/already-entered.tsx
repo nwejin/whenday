@@ -1,50 +1,52 @@
-import Link from "next/link";
+import { AppShell } from "@/components/layout/app-shell";
+import { PageHeader } from "@/components/layout/page-header";
+import {
+  PrimaryFooterLink,
+  StickyFooter,
+} from "@/components/layout/sticky-footer";
 import { LeaveLink } from "./leave-link";
 
 export function AlreadyEntered({
   meetingId,
+  title,
   name,
   color,
 }: {
   meetingId: string;
+  title: string;
   name: string;
   color: string;
 }) {
   return (
-    <>
-      <section className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-md px-4 py-8">
-          <div className="rounded-3xl border border-hairline-soft bg-surface-soft p-6 text-center">
-            <div
-              className="mx-auto h-12 w-12 rounded-full"
-              style={{ backgroundColor: color }}
-              aria-hidden
-            />
-            <p className="mt-4 text-base font-semibold text-ink-deep">
-              이미 {name}으로 입장 중입니다
-            </p>
-            <p className="mt-1 text-xs text-slate">
-              잘못 들어왔다면 아래 링크로 다시 선택할 수 있어요
-            </p>
-            <div className="mt-4 flex justify-center">
-              <LeaveLink meetingId={meetingId} />
-            </div>
-          </div>
-        </div>
-      </section>
-      <footer className="shrink-0 border-t border-hairline-soft bg-canvas">
+    <AppShell
+      header={<PageHeader title={title} />}
+      footer={
+        <StickyFooter
+          back={{ fallbackHref: "/" }}
+          primary={
+            <PrimaryFooterLink href={`/m/${meetingId}/result`}>
+              가능한 날짜 고르기
+            </PrimaryFooterLink>
+          }
+        />
+      }
+    >
+      <div className="mx-auto flex h-full w-full max-w-md flex-col items-center justify-center gap-6 px-6 py-12">
         <div
-          className="mx-auto w-full max-w-md px-4 pt-4"
-          style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}
-        >
-          <Link
-            href={`/m/${meetingId}/result`}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-ink-deep px-6 py-4 text-base font-bold text-canvas transition active:bg-charcoal"
-          >
-            결과 보기
-          </Link>
+          className="h-16 w-16 rounded-full"
+          style={{ backgroundColor: color }}
+          aria-hidden
+        />
+        <div className="space-y-1 text-center">
+          <p className="text-base font-bold text-ink-deep">
+            {name}으로 입장 중이에요
+          </p>
+          <p className="text-sm text-slate">
+            아래 버튼으로 가능한 날짜를 골라주세요
+          </p>
         </div>
-      </footer>
-    </>
+        <LeaveLink meetingId={meetingId} />
+      </div>
+    </AppShell>
   );
 }

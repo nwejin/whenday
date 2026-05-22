@@ -37,7 +37,12 @@ export async function signIn(formData: FormData) {
 export async function signUp(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const passwordConfirm = String(formData.get("passwordConfirm") ?? "");
   const redirectTo = String(formData.get("redirect") ?? "/") || "/";
+
+  if (password !== passwordConfirm) {
+    return { error: "비밀번호가 일치하지 않습니다" };
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({ email, password });

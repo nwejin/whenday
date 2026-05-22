@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { X } from "lucide-react";
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 
 const STEPS = [
   {
@@ -31,29 +32,38 @@ export function HowToModal({
 }) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     if (!open) return;
 
-    if (overlayRef.current) {
-      gsap.fromTo(
-        overlayRef.current,
-        { opacity: 0 },
-        { opacity: 1, duration: 0.2, ease: "power2.out" },
-      );
-    }
-    if (dialogRef.current) {
-      gsap.fromTo(
-        dialogRef.current,
-        { scale: 0.7, opacity: 0, y: 24 },
-        {
-          scale: 1,
-          opacity: 1,
-          y: 0,
-          duration: 0.55,
-          ease: "back.out(1.8)",
-        },
-      );
+    if (prefersReducedMotion) {
+      if (overlayRef.current) overlayRef.current.style.opacity = "1";
+      if (dialogRef.current) {
+        dialogRef.current.style.opacity = "1";
+        dialogRef.current.style.transform = "none";
+      }
+    } else {
+      if (overlayRef.current) {
+        gsap.fromTo(
+          overlayRef.current,
+          { opacity: 0 },
+          { opacity: 1, duration: 0.2, ease: "power2.out" },
+        );
+      }
+      if (dialogRef.current) {
+        gsap.fromTo(
+          dialogRef.current,
+          { scale: 0.7, opacity: 0, y: 24 },
+          {
+            scale: 1,
+            opacity: 1,
+            y: 0,
+            duration: 0.55,
+            ease: "back.out(1.8)",
+          },
+        );
+      }
     }
 
     function handleKey(e: KeyboardEvent) {
@@ -68,7 +78,7 @@ export function HowToModal({
       document.removeEventListener("keydown", handleKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [open, onClose]);
+  }, [open, onClose, prefersReducedMotion]);
 
   if (!open) return null;
 

@@ -1,38 +1,39 @@
 "use client";
 
 import { useState } from "react";
+import { Check, Share2 } from "lucide-react";
 
 export function CopyShareLink({ url }: { url: string }) {
-  const [copied, setCopied] = useState(false);
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        throw new Error("clipboard unavailable");
+      }
+      setState("copied");
+      setTimeout(() => setState("idle"), 1500);
     } catch {
-      // 권한 없을 시 무시 (예: insecure context)
+      window.prompt("링크를 복사해서 공유해주세요", url);
+      setState("failed");
+      setTimeout(() => setState("idle"), 2000);
     }
   }
 
   return (
-    <div className="space-y-2 rounded-2xl border border-hairline-soft bg-surface-soft p-4">
-      <p className="text-xs font-medium text-slate">공유 링크</p>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={url}
-          readOnly
-          className="flex-1 rounded-xl bg-canvas px-3 py-2 text-sm text-ink outline-none"
-        />
-        <button
-          type="button"
-          onClick={copy}
-          className="shrink-0 rounded-xl bg-ink-deep px-3 py-2 text-sm font-semibold text-canvas transition active:bg-charcoal"
-        >
-          {copied ? "복사됨" : "복사"}
-        </button>
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={copy}
+      aria-label="공유 링크 복사"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-soft text-ink-deep transition active:bg-hairline"
+    >
+      {state === "copied" ? (
+        <Check className="h-4 w-4" />
+      ) : (
+        <Share2 className="h-4 w-4" />
+      )}
+    </button>
   );
 }
