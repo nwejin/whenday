@@ -3,7 +3,6 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { participantCookieKey } from "@/lib/colors";
 import { EnterForm } from "./enter-form";
-import { EnterHeader } from "./enter-header";
 import { AlreadyEntered } from "./already-entered";
 
 type Params = Promise<{ meetingId: string }>;
@@ -35,23 +34,22 @@ export default async function MeetingEnterPage({
   const existing = (participants ?? []).find((p) => p.id === existingId);
   const isAlreadyEntered = Boolean(existing?.color);
 
-  return (
-    <main className="flex h-dvh flex-col bg-canvas">
-      <EnterHeader
+  if (isAlreadyEntered && existing) {
+    return (
+      <AlreadyEntered
+        meetingId={meeting.id}
         title={meeting.title}
-        subtitle={
-          isAlreadyEntered ? undefined : "본인 이름과 색상을 선택해주세요"
-        }
+        name={existing.name}
+        color={existing.color as string}
       />
-      {isAlreadyEntered && existing ? (
-        <AlreadyEntered
-          meetingId={meeting.id}
-          name={existing.name}
-          color={existing.color as string}
-        />
-      ) : (
-        <EnterForm meetingId={meeting.id} participants={participants ?? []} />
-      )}
-    </main>
+    );
+  }
+
+  return (
+    <EnterForm
+      meetingId={meeting.id}
+      title={meeting.title}
+      participants={participants ?? []}
+    />
   );
 }

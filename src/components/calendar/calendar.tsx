@@ -9,6 +9,7 @@ import {
   parseISO,
   startOfMonth,
 } from "date-fns";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type Participant = {
   id: string;
@@ -22,23 +23,18 @@ type Availability = {
   available_date: string;
 };
 
-type SelectMode = {
-  mode: "select";
-  currentParticipantId: string;
-  onToggleDate: (date: string) => void;
-};
-
-type ResultMode = {
-  mode: "result";
-  onCellClick?: (date: string) => void;
-};
-
 type Props = {
   dateRangeStart: string;
   dateRangeEnd: string;
   participants: Participant[];
   availabilities: Availability[];
-} & (SelectMode | ResultMode);
+  selectedDate: string | null;
+  onSelectDate: (date: string) => void;
+  /** 본인 슬롯 — 있으면 본인 슬롯만 강조 + 드래그/탭 토글 */
+  currentParticipantId?: string;
+  /** 본인이 입장한 경우의 토글 — 없으면 readonly */
+  onToggleDate?: (date: string) => void;
+};
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const EMPTY_SLOT_COLOR = "var(--color-surface-soft)";
@@ -47,11 +43,19 @@ const PARTICIPANT_FALLBACK_COLOR = "var(--color-stone)";
 type DragState = {
   fillMode: "add" | "remove";
   visited: Set<string>;
+  startDate: string;
 };
 
-export function Calendar(props: Props) {
-  const { dateRangeStart, dateRangeEnd, participants, availabilities } = props;
-
+export function Calendar({
+  dateRangeStart,
+  dateRangeEnd,
+  participants,
+  availabilities,
+  selectedDate,
+  onSelectDate,
+  currentParticipantId,
+  onToggleDate,
+}: Props) {
   const startDate = parseISO(dateRangeStart);
   const endDate = parseISO(dateRangeEnd);
 
@@ -70,29 +74,34 @@ export function Calendar(props: Props) {
   const availabilityByDate = groupByDate(availabilities);
   const totalParticipants = participants.length;
 
+  const canToggle = !!currentParticipantId && !!onToggleDate;
   const dragStateRef = useRef<DragState | null>(null);
 
+  const stripeMinHeight = totalParticipants <= 5 ? 8 : 6;
+  const cellMinHeight = 28 + totalParticipants * stripeMinHeight + 8;
+
   function isAvailableForCurrent(date: string): boolean {
-    if (props.mode !== "select") return false;
+    if (!currentParticipantId) return false;
     return availabilities.some(
       (a) =>
-        a.participant_id === props.currentParticipantId &&
+        a.participant_id === currentParticipantId &&
         a.available_date === date,
     );
   }
 
   function handleCellPointerDown(date: string) {
-    if (props.mode !== "select") return;
+    if (!canToggle) return;
     const currentlyAvailable = isAvailableForCurrent(date);
     dragStateRef.current = {
       fillMode: currentlyAvailable ? "remove" : "add",
       visited: new Set([date]),
+      startDate: date,
     };
-    props.onToggleDate(date);
+    onToggleDate!(date);
   }
 
   function applyDragToCell(date: string) {
-    if (props.mode !== "select") return;
+    if (!canToggle) return;
     const drag = dragStateRef.current;
     if (!drag) return;
     if (drag.visited.has(date)) return;
@@ -102,9 +111,9 @@ export function Calendar(props: Props) {
       (drag.fillMode === "add" && currentlyAvailable) ||
       (drag.fillMode === "remove" && !currentlyAvailable)
     ) {
-      return; // 이미 원하는 상태
+      return;
     }
-    props.onToggleDate(date);
+    onToggleDate!(date);
   }
 
   function handleGridPointerMove(e: React.PointerEvent) {
@@ -119,24 +128,30 @@ export function Calendar(props: Props) {
   }
 
   function endDrag() {
+    const drag = dragStateRef.current;
     dragStateRef.current = null;
+    if (drag && drag.visited.size === 1) {
+      onSelectDate(drag.startDate);
+    }
   }
 
-  const isSelectMode = props.mode === "select";
+  function handleReadonlyClick(date: string) {
+    onSelectDate(date);
+  }
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-2">
       <div className="flex items-center justify-between">
         <button
           type="button"
           onClick={goPrev}
           disabled={!canGoPrev}
           aria-label="이전 달"
-          className="rounded-xl px-3 py-2 text-charcoal transition active:bg-surface-soft disabled:opacity-30"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-charcoal transition active:bg-surface-soft disabled:opacity-30"
         >
-          ←
+          <ChevronLeft className="h-4 w-4" />
         </button>
-        <h2 className="text-base font-semibold text-ink-deep">
+        <h2 className="text-base font-bold text-ink-deep">
           {format(viewMonth, "yyyy년 M월")}
         </h2>
         <button
@@ -144,9 +159,9 @@ export function Calendar(props: Props) {
           onClick={goNext}
           disabled={!canGoNext}
           aria-label="다음 달"
-          className="rounded-xl px-3 py-2 text-charcoal transition active:bg-surface-soft disabled:opacity-30"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-charcoal transition active:bg-surface-soft disabled:opacity-30"
         >
-          →
+          <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
@@ -154,7 +169,7 @@ export function Calendar(props: Props) {
         {WEEKDAYS.map((day) => (
           <div
             key={day}
-            className="py-2 text-center text-xs font-medium text-stone"
+            className="py-1.5 text-center text-xs font-medium text-stone"
           >
             {day}
           </div>
@@ -162,16 +177,22 @@ export function Calendar(props: Props) {
       </div>
 
       <div
-        className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-hairline-soft bg-hairline-soft"
-        onPointerMove={isSelectMode ? handleGridPointerMove : undefined}
-        onPointerUp={isSelectMode ? endDrag : undefined}
-        onPointerCancel={isSelectMode ? endDrag : undefined}
-        onPointerLeave={isSelectMode ? endDrag : undefined}
-        style={isSelectMode ? { touchAction: "none" } : undefined}
+        className="grid grid-cols-7 gap-px overflow-hidden rounded-2xl border border-hairline-soft bg-hairline-soft"
+        onPointerMove={canToggle ? handleGridPointerMove : undefined}
+        onPointerUp={canToggle ? endDrag : undefined}
+        onPointerCancel={canToggle ? endDrag : undefined}
+        onPointerLeave={canToggle ? endDrag : undefined}
+        style={canToggle ? { touchAction: "none" } : undefined}
       >
         {cells.map((date, idx) => {
           if (!date) {
-            return <div key={idx} className="aspect-square bg-surface-soft" />;
+            return (
+              <div
+                key={idx}
+                className="bg-surface-soft"
+                style={{ minHeight: cellMinHeight }}
+              />
+            );
           }
           const inRange = date >= startDate && date <= endDate;
           const dateKey = format(date, "yyyy-MM-dd");
@@ -179,25 +200,41 @@ export function Calendar(props: Props) {
           const availableCount = availableSet.size;
           const isAllAvailable =
             totalParticipants > 0 && availableCount === totalParticipants;
+          const isSelected = selectedDate === dateKey;
 
           const cellContent = (
             <CellContent
               date={date}
               inRange={inRange}
               isAllAvailable={isAllAvailable}
+              availableCount={availableCount}
+              totalParticipants={totalParticipants}
               participants={participants}
               availableSet={availableSet}
-              currentParticipantId={
-                props.mode === "select" ? props.currentParticipantId : undefined
-              }
+              currentParticipantId={currentParticipantId}
+              stripeMinHeight={stripeMinHeight}
             />
           );
 
-          const baseCellClass = inRange
-            ? "aspect-square bg-canvas"
-            : "aspect-square bg-surface-soft opacity-40";
+          const cellStyle = { minHeight: cellMinHeight };
 
-          if (inRange && props.mode === "select") {
+          if (!inRange) {
+            return (
+              <div
+                key={idx}
+                className="bg-surface-soft opacity-40"
+                style={cellStyle}
+              >
+                {cellContent}
+              </div>
+            );
+          }
+
+          const selectedClass = isSelected
+            ? "outline outline-2 -outline-offset-2 outline-ink-deep"
+            : "";
+
+          if (canToggle) {
             return (
               <button
                 key={idx}
@@ -207,21 +244,8 @@ export function Calendar(props: Props) {
                   e.preventDefault();
                   handleCellPointerDown(dateKey);
                 }}
-                className={`${baseCellClass} text-left transition active:bg-surface-soft`}
-              >
-                {cellContent}
-              </button>
-            );
-          }
-
-          if (inRange && props.mode === "result" && props.onCellClick) {
-            const onCellClick = props.onCellClick;
-            return (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => onCellClick(dateKey)}
-                className={`${baseCellClass} text-left transition active:bg-surface-soft`}
+                className={`bg-canvas text-left transition active:bg-surface-soft ${selectedClass}`}
+                style={cellStyle}
               >
                 {cellContent}
               </button>
@@ -229,9 +253,15 @@ export function Calendar(props: Props) {
           }
 
           return (
-            <div key={idx} className={baseCellClass}>
+            <button
+              key={idx}
+              type="button"
+              onClick={() => handleReadonlyClick(dateKey)}
+              className={`bg-canvas text-left transition active:bg-surface-soft ${selectedClass}`}
+              style={cellStyle}
+            >
               {cellContent}
-            </div>
+            </button>
           );
         })}
       </div>
@@ -243,35 +273,54 @@ function CellContent({
   date,
   inRange,
   isAllAvailable,
+  availableCount,
+  totalParticipants,
   participants,
   availableSet,
   currentParticipantId,
+  stripeMinHeight,
 }: {
   date: Date;
   inRange: boolean;
   isAllAvailable: boolean;
+  availableCount: number;
+  totalParticipants: number;
   participants: Participant[];
   availableSet: Set<string>;
   currentParticipantId?: string;
+  stripeMinHeight: number;
 }) {
   return (
-    <div className="flex h-full flex-col p-1">
+    <div className="flex h-full flex-col gap-1 p-1.5">
       <div className="flex items-start justify-between">
         <span
           className={
-            inRange ? "text-xs text-ink" : "text-xs text-stone"
+            inRange
+              ? isAllAvailable
+                ? "text-xs font-bold text-ink-deep"
+                : "text-xs text-ink"
+              : "text-xs text-stone"
           }
         >
           {date.getDate()}
         </span>
-        {inRange && isAllAvailable && (
-          <span className="text-[10px]" aria-label="모두 가능">
-            ⭐
+        {inRange && totalParticipants > 0 ? (
+          <span
+            className={
+              isAllAvailable
+                ? "text-[10px] font-bold text-ink-deep"
+                : availableCount > 0
+                  ? "text-[10px] text-slate"
+                  : "text-[10px] text-stone"
+            }
+            aria-label={`${availableCount} / ${totalParticipants}명 가능`}
+          >
+            {availableCount}/{totalParticipants}
           </span>
-        )}
+        ) : null}
       </div>
-      {inRange && participants.length > 0 && (
-        <div className="mt-1 flex flex-1 flex-col gap-px">
+      {inRange && participants.length > 0 ? (
+        <div className="flex flex-1 flex-col gap-px">
           {participants.map((p) => {
             const isAvailable = availableSet.has(p.id);
             const isMe = currentParticipantId === p.id;
@@ -279,19 +328,20 @@ function CellContent({
             return (
               <div
                 key={p.id}
-                className="min-h-0.75 flex-1 rounded-[1px]"
+                className="flex-1 rounded-[1px]"
                 style={{
+                  minHeight: stripeMinHeight,
                   backgroundColor: isAvailable
                     ? (p.color ?? PARTICIPANT_FALLBACK_COLOR)
                     : EMPTY_SLOT_COLOR,
-                  opacity: isDimmed ? 0.4 : 1,
+                  opacity: isDimmed ? 0.45 : 1,
                 }}
                 aria-label={`${p.name}: ${isAvailable ? "가능" : "미선택"}`}
               />
             );
           })}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

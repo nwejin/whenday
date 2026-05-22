@@ -49,4 +49,5 @@ export async function leaveAsCurrentParticipant(formData: FormData) {
   cookieStore.delete(participantCookieKey(meetingId));
 
   revalidatePath(`/m/${meetingId}`, "layout");
+  redirect(`/m/${meetingId}`);
 }

@@ -2,9 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // 정확히 일치해야 하는 보호 라우트 (자식 경로는 보호 안 함)
-const PROTECTED_EXACT = new Set(["/"]);
+const PROTECTED_EXACT = new Set<string>();
 // 자식 경로까지 보호하는 라우트
 const PROTECTED_PREFIX = ["/new"];
+// "/"는 비로그인 시 랜딩, 로그인 시 약속 목록으로 자체 분기 — 미들웨어 보호 안 함
 
 function isProtected(pathname: string): boolean {
   if (PROTECTED_EXACT.has(pathname)) return true;
