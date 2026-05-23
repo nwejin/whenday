@@ -34,6 +34,8 @@ type Props = {
   currentParticipantId?: string;
   /** 본인이 입장한 경우의 토글 — 없으면 readonly */
   onToggleDate?: (date: string) => void;
+  /** 확정된 날짜 — ⭐ 표시 + 강조 outline */
+  confirmedDate?: string | null;
 };
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -55,6 +57,7 @@ export function Calendar({
   onSelectDate,
   currentParticipantId,
   onToggleDate,
+  confirmedDate,
 }: Props) {
   const startDate = parseISO(dateRangeStart);
   const endDate = parseISO(dateRangeEnd);
@@ -201,12 +204,14 @@ export function Calendar({
           const isAllAvailable =
             totalParticipants > 0 && availableCount === totalParticipants;
           const isSelected = selectedDate === dateKey;
+          const isConfirmed = !!confirmedDate && confirmedDate === dateKey;
 
           const cellContent = (
             <CellContent
               date={date}
               inRange={inRange}
               isAllAvailable={isAllAvailable}
+              isConfirmed={isConfirmed}
               participants={participants}
               availableSet={availableSet}
               currentParticipantId={currentParticipantId}
@@ -271,6 +276,7 @@ function CellContent({
   date,
   inRange,
   isAllAvailable,
+  isConfirmed,
   participants,
   availableSet,
   currentParticipantId,
@@ -279,6 +285,7 @@ function CellContent({
   date: Date;
   inRange: boolean;
   isAllAvailable: boolean;
+  isConfirmed: boolean;
   participants: Participant[];
   availableSet: Set<string>;
   currentParticipantId?: string;
@@ -286,7 +293,7 @@ function CellContent({
 }) {
   return (
     <div className="flex h-full flex-col gap-1 p-1.5">
-      <div className="flex items-start">
+      <div className="flex items-start justify-between">
         <span
           className={
             inRange
@@ -298,6 +305,7 @@ function CellContent({
         >
           {date.getDate()}
         </span>
+        {isConfirmed ? <span className="text-base leading-none">⭐</span> : null}
       </div>
       {inRange && participants.length > 0 ? (
         <div className="flex flex-1 flex-col gap-px">

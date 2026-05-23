@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { ko } from "date-fns/locale";
 import { AppShell } from "@/components/layout/app-shell";
@@ -26,7 +26,7 @@ export default async function ConfirmedPage({
     .single();
 
   if (error || !meeting) notFound();
-  if (!meeting.confirmed_date) notFound();
+  if (!meeting.confirmed_date) redirect("/");
 
   const formattedDate = format(
     parseISO(meeting.confirmed_date),
