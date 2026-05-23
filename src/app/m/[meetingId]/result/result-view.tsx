@@ -3,8 +3,8 @@
 import { ReactNode, useOptimistic, useState, useTransition } from "react";
 import { format, parseISO } from "date-fns";
 import { ko } from "date-fns/locale";
-import { X } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { Dialog } from "@/components/ui/dialog";
 import {
   PrimaryFooterButton,
   PrimaryFooterLink,
@@ -28,6 +28,8 @@ type Availability = {
 };
 
 type ToggleAction = { type: "toggle"; date: string };
+
+function noop() {}
 
 export function ResultView({
   meetingId,
@@ -55,6 +57,21 @@ export function ResultView({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [isConfirming, startConfirming] = useTransition();
+
+  const myInitialAvailCount = currentParticipantId
+    ? initialAvailabilities.filter(
+        (a) => a.participant_id === currentParticipantId,
+      ).length
+    : 0;
+  const canSwitchMode = !!currentParticipantId && !confirmedDate;
+  const [inputMode, setInputMode] = useState(
+    canSwitchMode && myInitialAvailCount === 0,
+  );
+
+  function switchMode(next: boolean) {
+    setInputMode(next);
+    setSelectedDate(null);
+  }
 
   const [availabilities, applyOptimistic] = useOptimistic(
     initialAvailabilities,
@@ -173,33 +190,38 @@ export function ResultView({
       }
     >
       <div className="mx-auto w-full max-w-md space-y-5 px-4 py-4">
+        {canSwitchMode ? (
+          <ModeSegmented inputMode={inputMode} onChange={switchMode} />
+        ) : null}
+
         <Calendar
           dateRangeStart={dateRangeStart}
           dateRangeEnd={dateRangeEnd}
           participants={participants}
           availabilities={availabilities}
           selectedDate={selectedDate}
-          onSelectDate={handleSelectDate}
+          onSelectDate={inputMode ? noop : handleSelectDate}
           currentParticipantId={currentParticipantId ?? undefined}
-          onToggleDate={currentParticipantId ? handleToggle : undefined}
+          onToggleDate={
+            currentParticipantId && inputMode ? handleToggle : undefined
+          }
         />
 
-        {selectedDate ? (
-          <SelectedDatePanel
-            date={selectedDate}
-            participants={participants}
-            availSet={selectedAvailSet}
-            onClose={() => setSelectedDate(null)}
-          />
-        ) : null}
+        <SelectedDateSheet
+          open={!inputMode && !!selectedDate}
+          date={selectedDate}
+          participants={participants}
+          availSet={selectedAvailSet}
+          onClose={() => setSelectedDate(null)}
+        />
 
         <ParticipantChips
           participants={participants}
           currentParticipantId={currentParticipantId}
         />
 
-        {!confirmedDate && currentParticipantId ? (
-          <p className="text-center text-xs text-stone">
+        {canSwitchMode && inputMode ? (
+          <p className="text-center text-sm text-stone">
             셀을 탭하거나 드래그해서 가능한 날짜를 골라요
           </p>
         ) : null}
@@ -231,23 +253,26 @@ function ResultHeader({
   return (
     <header className="shrink-0 border-b border-hairline-soft bg-canvas">
       <div className="mx-auto w-full max-w-md px-4 py-3">
-        <div className="flex items-center gap-2">
-          <h1 className="flex-1 truncate text-lg font-bold tracking-tight text-ink-deep">
-            {title}
-          </h1>
+        <h1 className="truncate text-lg font-bold tracking-tight text-ink-deep">
+          {title}
+        </h1>
+        <div className="mt-2 flex items-center gap-2">
+          <p className="flex-1 truncate text-sm text-slate">{rangeLabel}</p>
           {currentParticipant ? (
-            <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-surface-soft px-2.5 py-1 text-xs font-medium text-ink-deep">
+            <span className="flex h-9 shrink-0 items-center gap-2 rounded-full bg-surface-soft px-3 text-sm font-medium text-ink-deep">
               <span
-                className="h-2.5 w-2.5 rounded-full"
+                className="h-3 w-3 rounded-full"
                 style={{
                   backgroundColor:
                     currentParticipant.color ?? "var(--color-stone)",
                 }}
                 aria-hidden
               />
-              <span>{currentParticipant.name}</span>
+              <span className="max-w-24 truncate">
+                {currentParticipant.name}
+              </span>
               {isHost ? (
-                <span className="text-[10px] text-slate">(방장)</span>
+                <span className="text-xs text-slate">(방장)</span>
               ) : null}
             </span>
           ) : null}
@@ -259,27 +284,69 @@ function ResultHeader({
             />
           ) : null}
         </div>
-        <p className="mt-1 text-xs text-slate">{rangeLabel}</p>
       </div>
     </header>
   );
 }
 
-function SelectedDatePanel({
+function ModeSegmented({
+  inputMode,
+  onChange,
+}: {
+  inputMode: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  const baseClass = "flex-1 rounded-full px-4 py-2 text-sm transition";
+  const activeClass = "bg-canvas font-bold text-ink-deep shadow-sm";
+  const inactiveClass = "text-charcoal active:text-ink-deep";
+  return (
+    <div
+      role="tablist"
+      aria-label="캘린더 모드"
+      className="flex rounded-full bg-surface-soft p-1"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={inputMode}
+        onClick={() => onChange(true)}
+        className={`${baseClass} ${inputMode ? activeClass : inactiveClass}`}
+      >
+        내 일정 입력
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={!inputMode}
+        onClick={() => onChange(false)}
+        className={`${baseClass} ${!inputMode ? activeClass : inactiveClass}`}
+      >
+        결과 보기
+      </button>
+    </div>
+  );
+}
+
+function SelectedDateSheet({
+  open,
   date,
   participants,
   availSet,
   onClose,
 }: {
-  date: string;
+  open: boolean;
+  date: string | null;
   participants: Participant[];
   availSet: Set<string>;
   onClose: () => void;
 }) {
-  const label = format(parseISO(date), "M월 d일 EEEE", { locale: ko });
+  const label = date
+    ? format(parseISO(date), "M월 d일 EEEE", { locale: ko })
+    : "";
   const totalJoined = participants.filter((p) => p.color).length;
   const availCount = participants.filter((p) => availSet.has(p.id)).length;
   const allAvailable =
+    !!date &&
     totalJoined > 0 &&
     participants.length === totalJoined &&
     availCount === participants.length;
@@ -291,39 +358,31 @@ function SelectedDatePanel({
   const noJoinList = participants.filter((p) => !p.color);
 
   return (
-    <div className="space-y-3 rounded-2xl border border-hairline bg-canvas p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-base font-bold text-ink-deep">
-            {label}
-            {allAvailable ? (
-              <span className="ml-1 text-sm">⭐</span>
-            ) : null}
-          </p>
-          <p className="mt-0.5 text-xs text-slate">
-            {availCount} / {participants.length}명 가능
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="닫기"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-stone transition active:bg-surface-soft"
-        >
-          <X className="h-4 w-4" />
-        </button>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+      title={
+        <span>
+          {label}
+          {allAvailable ? <span className="ml-1 text-base">⭐</span> : null}
+        </span>
+      }
+      description={`${availCount} / ${participants.length}명 가능`}
+    >
+      <div className="space-y-3 pb-3">
+        {availList.length > 0 ? (
+          <ChipRow label="가능" participants={availList} variant="filled" />
+        ) : null}
+        {unavailList.length > 0 ? (
+          <ChipRow label="불가능" participants={unavailList} variant="muted" />
+        ) : null}
+        {noJoinList.length > 0 ? (
+          <ChipRow label="미입장" participants={noJoinList} variant="ghost" />
+        ) : null}
       </div>
-
-      {availList.length > 0 ? (
-        <ChipRow label="가능" participants={availList} variant="filled" />
-      ) : null}
-      {unavailList.length > 0 ? (
-        <ChipRow label="불가능" participants={unavailList} variant="muted" />
-      ) : null}
-      {noJoinList.length > 0 ? (
-        <ChipRow label="미입장" participants={noJoinList} variant="ghost" />
-      ) : null}
-    </div>
+    </Dialog>
   );
 }
 
@@ -337,8 +396,8 @@ function ChipRow({
   variant: "filled" | "muted" | "ghost";
 }) {
   return (
-    <div className="space-y-1.5">
-      <p className="text-[10px] font-bold tracking-wide text-stone">{label}</p>
+    <div className="space-y-2">
+      <p className="text-xs font-bold tracking-wide text-stone">{label}</p>
       <div className="flex flex-wrap gap-1.5">
         {participants.map((p) => (
           <ParticipantNameChip key={p.id} participant={p} variant={variant} />
@@ -357,14 +416,14 @@ function ParticipantNameChip({
 }) {
   const className =
     variant === "filled"
-      ? "flex items-center gap-1.5 rounded-full border border-hairline bg-canvas px-2.5 py-1 text-xs font-medium text-ink-deep"
+      ? "flex items-center gap-1.5 rounded-full border border-hairline bg-canvas px-3 py-1.5 text-sm font-medium text-ink-deep"
       : variant === "muted"
-        ? "flex items-center gap-1.5 rounded-full border border-hairline-soft bg-surface-soft px-2.5 py-1 text-xs text-stone line-through"
-        : "flex items-center gap-1.5 rounded-full border border-dashed border-hairline-soft px-2.5 py-1 text-xs text-stone";
+        ? "flex items-center gap-1.5 rounded-full border border-hairline-soft bg-surface-soft px-3 py-1.5 text-sm text-stone line-through"
+        : "flex items-center gap-1.5 rounded-full border border-dashed border-hairline-soft px-3 py-1.5 text-sm text-stone";
   return (
     <span className={className}>
       <span
-        className="h-2 w-2 rounded-full"
+        className="h-2.5 w-2.5 rounded-full"
         style={{
           backgroundColor: participant.color ?? "var(--color-stone)",
         }}
@@ -384,7 +443,7 @@ function ParticipantChips({
 }) {
   return (
     <section className="space-y-2">
-      <h3 className="text-xs font-medium text-stone">
+      <h3 className="text-sm font-medium text-stone">
         참여자 ({participants.length}명)
       </h3>
       <ul className="flex flex-wrap gap-1.5">
@@ -393,21 +452,21 @@ function ParticipantChips({
           const isJoined = !!p.color;
           const className = isJoined
             ? isMe
-              ? "flex items-center gap-1.5 rounded-full border-2 border-ink-deep bg-canvas px-2.5 py-1 text-xs font-bold text-ink-deep"
-              : "flex items-center gap-1.5 rounded-full border border-hairline bg-canvas px-2.5 py-1 text-xs text-ink-deep"
-            : "flex items-center gap-1.5 rounded-full border border-dashed border-hairline-soft px-2.5 py-1 text-xs text-stone";
+              ? "flex items-center gap-1.5 rounded-full border-2 border-ink-deep bg-canvas px-3 py-1.5 text-sm font-bold text-ink-deep"
+              : "flex items-center gap-1.5 rounded-full border border-hairline bg-canvas px-3 py-1.5 text-sm text-ink-deep"
+            : "flex items-center gap-1.5 rounded-full border border-dashed border-hairline-soft px-3 py-1.5 text-sm text-stone";
           return (
             <li key={p.id}>
               <span className={className}>
                 <span
-                  className="h-2.5 w-2.5 rounded-full"
+                  className="h-3 w-3 rounded-full"
                   style={{
                     backgroundColor: p.color ?? "var(--color-stone)",
                   }}
                   aria-hidden
                 />
                 {p.name}
-                {isMe ? <span className="text-[10px]">나</span> : null}
+                {isMe ? <span className="text-xs">나</span> : null}
               </span>
             </li>
           );
