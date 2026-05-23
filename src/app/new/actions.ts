@@ -2,14 +2,19 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { PARTICIPANT_COLORS, participantCookieKey } from "@/lib/colors";
 
 type CreateMeetingInput = {
   title: string;
   dateRangeStart: string;
   dateRangeEnd: string;
   participants: string[];
+  hostColor: string;
 };
+
+const VALID_COLORS = new Set<string>(PARTICIPANT_COLORS.map((c) => c.hex));
 
 function validate(input: CreateMeetingInput): string | null {
   if (!input.title.trim()) return "제목을 입력해주세요";
@@ -22,6 +27,8 @@ function validate(input: CreateMeetingInput): string | null {
     return "참여자 이름이 중복됩니다";
   if (input.dateRangeStart > input.dateRangeEnd)
     return "종료일은 시작일 이후여야 합니다";
+  if (!VALID_COLORS.has(input.hostColor))
+    return "방장 색을 선택해주세요";
   return null;
 }
 
@@ -54,16 +61,30 @@ export async function createMeeting(input: CreateMeetingInput) {
     meeting_id: meeting.id,
     name: name.trim(),
     display_order: index,
+    color: index === 0 ? input.hostColor : null,
   }));
 
-  const { error: partError } = await supabase
+  const { data: insertedParticipants, error: partError } = await supabase
     .from("participants")
-    .insert(participantsToInsert);
+    .insert(participantsToInsert)
+    .select("id, display_order");
 
-  if (partError) {
+  if (partError || !insertedParticipants) {
     // 참여자 INSERT 실패 — meeting 롤백 (CASCADE로 자식 행도 정리됨)
     await supabase.from("meetings").delete().eq("id", meeting.id);
     return { error: "참여자 등록에 실패했습니다" };
+  }
+
+  const hostParticipant = insertedParticipants.find(
+    (p) => p.display_order === 0,
+  );
+  if (hostParticipant) {
+    const cookieStore = await cookies();
+    cookieStore.set(participantCookieKey(meeting.id), hostParticipant.id, {
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+      path: "/",
+    });
   }
 
   revalidatePath("/", "layout");
