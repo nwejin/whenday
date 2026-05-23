@@ -12,6 +12,7 @@ import {
 import { DatePicker } from "@/components/date-picker/date-picker";
 import { createMeeting } from "./actions";
 import { AddParticipantDialog } from "./add-participant-dialog";
+import { HostColorSheet } from "./host-color-sheet";
 
 const MAX_PARTICIPANTS = 10;
 const MIN_PARTICIPANTS = 2;
@@ -33,6 +34,8 @@ export default function NewMeetingPage() {
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(monthLater);
   const [hostName, setHostName] = useState("");
+  const [hostColor, setHostColor] = useState<string | null>(null);
+  const [colorSheetOpen, setColorSheetOpen] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const nextIdRef = useRef(0);
@@ -59,6 +62,7 @@ export default function NewMeetingPage() {
   function handleSubmit() {
     const trimmedHost = hostName.trim();
     if (!trimmedHost) return setError("방장 이름을 입력해주세요");
+    if (!hostColor) return setError("방장 색을 선택해주세요");
 
     const names = [trimmedHost, ...participants.map((p) => p.name.trim())]
       .filter(Boolean);
@@ -78,6 +82,7 @@ export default function NewMeetingPage() {
         dateRangeStart: startDate,
         dateRangeEnd: endDate,
         participants: names,
+        hostColor,
       });
       if (result?.error) setError(result.error);
     });
@@ -158,11 +163,28 @@ export default function NewMeetingPage() {
                   onChange={(e) => setHostName(e.target.value)}
                   placeholder="방장 이름"
                   maxLength={20}
-                  className="w-full rounded-xl border border-hairline-soft bg-canvas px-4 py-3 pr-16 text-base text-ink-deep outline-none transition focus:border-ink-deep"
+                  className="w-full rounded-xl border border-hairline-soft bg-canvas px-4 py-3 pr-24 text-base text-ink-deep outline-none transition focus:border-ink-deep"
                 />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-ink-deep px-2 py-0.5 text-[10px] font-bold tracking-wide text-canvas">
-                  방장
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setColorSheetOpen(true)}
+                  aria-label={hostColor ? "방장 색 변경" : "방장 색 선택"}
+                  className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1.5 rounded-full border border-hairline bg-canvas py-1 pl-1.5 pr-2.5 text-[11px] font-bold text-ink-deep transition active:bg-surface-soft"
+                >
+                  {hostColor ? (
+                    <span
+                      className="h-4 w-4 rounded-full"
+                      style={{ backgroundColor: hostColor }}
+                      aria-hidden
+                    />
+                  ) : (
+                    <span
+                      className="h-4 w-4 rounded-full border border-dashed border-hairline"
+                      aria-hidden
+                    />
+                  )}
+                  <span>방장</span>
+                </button>
               </div>
 
               {participants.length > 0 ? (
@@ -210,6 +232,13 @@ export default function NewMeetingPage() {
         onOpenChange={setDialogOpen}
         onAdd={addParticipant}
         existingNames={existingNames}
+      />
+
+      <HostColorSheet
+        open={colorSheetOpen}
+        onOpenChange={setColorSheetOpen}
+        selected={hostColor}
+        onSelect={setHostColor}
       />
     </>
   );
