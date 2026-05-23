@@ -78,7 +78,7 @@ export function Calendar({
   const dragStateRef = useRef<DragState | null>(null);
 
   const stripeMinHeight = totalParticipants <= 5 ? 8 : 6;
-  const cellMinHeight = 28 + totalParticipants * stripeMinHeight + 8;
+  const cellMinHeight = 32 + totalParticipants * stripeMinHeight + 8;
 
   function isAvailableForCurrent(date: string): boolean {
     if (!currentParticipantId) return false;
@@ -169,7 +169,7 @@ export function Calendar({
         {WEEKDAYS.map((day) => (
           <div
             key={day}
-            className="py-1.5 text-center text-xs font-medium text-stone"
+            className="py-1.5 text-center text-sm font-medium text-stone"
           >
             {day}
           </div>
@@ -207,8 +207,6 @@ export function Calendar({
               date={date}
               inRange={inRange}
               isAllAvailable={isAllAvailable}
-              availableCount={availableCount}
-              totalParticipants={totalParticipants}
               participants={participants}
               availableSet={availableSet}
               currentParticipantId={currentParticipantId}
@@ -273,8 +271,6 @@ function CellContent({
   date,
   inRange,
   isAllAvailable,
-  availableCount,
-  totalParticipants,
   participants,
   availableSet,
   currentParticipantId,
@@ -283,8 +279,6 @@ function CellContent({
   date: Date;
   inRange: boolean;
   isAllAvailable: boolean;
-  availableCount: number;
-  totalParticipants: number;
   participants: Participant[];
   availableSet: Set<string>;
   currentParticipantId?: string;
@@ -292,32 +286,18 @@ function CellContent({
 }) {
   return (
     <div className="flex h-full flex-col gap-1 p-1.5">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start">
         <span
           className={
             inRange
               ? isAllAvailable
-                ? "text-xs font-bold text-ink-deep"
-                : "text-xs text-ink"
-              : "text-xs text-stone"
+                ? "text-sm font-bold text-ink-deep"
+                : "text-sm text-ink"
+              : "text-sm text-stone"
           }
         >
           {date.getDate()}
         </span>
-        {inRange && totalParticipants > 0 ? (
-          <span
-            className={
-              isAllAvailable
-                ? "text-[10px] font-bold text-ink-deep"
-                : availableCount > 0
-                  ? "text-[10px] text-slate"
-                  : "text-[10px] text-stone"
-            }
-            aria-label={`${availableCount} / ${totalParticipants}명 가능`}
-          >
-            {availableCount}/{totalParticipants}
-          </span>
-        ) : null}
       </div>
       {inRange && participants.length > 0 ? (
         <div className="flex flex-1 flex-col gap-px">
