@@ -54,8 +54,9 @@
 
 - ✅ Phase 1 — 방장 홈 + Pretendard + 디자인 토큰 + sticky 3단 레이아웃 ([플랜](/Users/jinchoi/.claude/plans/parsed-zooming-toast.md))
 - ✅ Phase 2 — 참여자 입장 UX (step machine + 10색 + GSAP overlay + LeaveLink) ([플랜](/Users/jinchoi/.claude/plans/users-jinchoi-claude-plans-parsed-zoomi-idempotent-knuth.md))
-- ⏭ **Phase 3 (다음 회차)** — 디자인 폴리싱: /new, /result, /confirmed, /login, DatePicker, 캘린더 옛 톤 정비
-- ⏳ Phase 4 — 데이터 계층: Supabase Realtime, 옵티미스틱 검증, RLS 강화
+- ✅ Phase 3 — 디자인 폴리싱: /new, /result, /confirmed, /login, DatePicker, 캘린더 옛 톤 정비 (69775b9, main 머지·푸시 완료)
+- ✅ Phase 3.5 — UI/UX 재배치: 방장 색 선택 (/new), /result 모드 분리(입력/결과 segmented), 결과 모드 상세 시트(vaul Drawer), 헤더 재배치(title 단독 줄 + 메타·액션 줄), 본문 타이포 일괄 업, 캘린더 셀 n/N 제거. 브랜치 `feat/host-color-on-create`, `feat/tap-vs-toggle-split` — PR·머지 대기.
+- ⏭ **Phase 4 (다음 회차)** — 데이터 계층: Supabase Realtime, 옵티미스틱 검증, RLS 강화. 새 세션 + plan mode 진입 권장.
 
 ## 참고 문서
 
