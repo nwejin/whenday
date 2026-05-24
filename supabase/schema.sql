@@ -85,4 +85,12 @@ create policy "availabilities_insert_all" on availabilities
 create policy "availabilities_delete_all" on availabilities
   for delete using (true);
 
+-- ============================================================
+-- 4. Realtime publication (client에서 변경 구독용)
+-- ============================================================
+
+alter publication supabase_realtime add table meetings;
+alter publication supabase_realtime add table participants;
+alter publication supabase_realtime add table availabilities;
+
 commit;

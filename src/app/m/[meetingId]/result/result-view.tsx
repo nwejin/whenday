@@ -1,12 +1,21 @@
 "use client";
 
-import { ReactNode, useOptimistic, useState, useTransition } from "react";
+import {
+  ReactNode,
+  useCallback,
+  useEffect,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
+import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { format, parseISO } from "date-fns";
 import { ko } from "date-fns/locale";
 import { AppShell } from "@/components/layout/app-shell";
 import { Dialog } from "@/components/ui/dialog";
+import { useMeetingRealtime } from "@/hooks/use-meeting-realtime";
 import {
-  PrimaryFooterButton,
   PrimaryFooterLink,
   StickyFooter,
 } from "@/components/layout/sticky-footer";
@@ -37,8 +46,8 @@ export function ResultView({
   dateRangeStart,
   dateRangeEnd,
   isHost,
-  confirmedDate,
-  participants,
+  confirmedDate: initialConfirmedDate,
+  participants: initialParticipants,
   availabilities: initialAvailabilities,
   currentParticipantId,
   shareUrl,
@@ -57,6 +66,20 @@ export function ResultView({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [isConfirming, startConfirming] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  const [participants, setParticipants] =
+    useState<Participant[]>(initialParticipants);
+  const [baseAvailabilities, setBaseAvailabilities] =
+    useState<Availability[]>(initialAvailabilities);
+  const [confirmedDate, setConfirmedDate] = useState<string | null>(
+    initialConfirmedDate,
+  );
+
+  const participantsRef = useRef(participants);
+  useEffect(() => {
+    participantsRef.current = participants;
+  }, [participants]);
 
   const myInitialAvailCount = currentParticipantId
     ? initialAvailabilities.filter(
@@ -65,7 +88,7 @@ export function ResultView({
     : 0;
   const canSwitchMode = !!currentParticipantId && !confirmedDate;
   const [inputMode, setInputMode] = useState(
-    canSwitchMode && myInitialAvailCount === 0,
+    !!currentParticipantId && !initialConfirmedDate && myInitialAvailCount === 0,
   );
 
   function switchMode(next: boolean) {
@@ -74,7 +97,7 @@ export function ResultView({
   }
 
   const [availabilities, applyOptimistic] = useOptimistic(
-    initialAvailabilities,
+    baseAvailabilities,
     (state, action: ToggleAction) => {
       if (!currentParticipantId) return state;
       const exists = state.some(
@@ -105,14 +128,137 @@ export function ResultView({
     (p) => p.id === currentParticipantId,
   );
 
+  const handleParticipantChange = useCallback(
+    (payload: RealtimePostgresChangesPayload<Participant>) => {
+      if (payload.eventType === "INSERT") {
+        const row = payload.new;
+        setParticipants((prev) => {
+          if (prev.some((p) => p.id === row.id)) return prev;
+          const next = [...prev, row];
+          next.sort((a, b) => a.display_order - b.display_order);
+          return next;
+        });
+      } else if (payload.eventType === "UPDATE") {
+        const row = payload.new;
+        setParticipants((prev) =>
+          prev.map((p) => (p.id === row.id ? { ...p, ...row } : p)),
+        );
+      } else if (payload.eventType === "DELETE") {
+        const oldId = (payload.old as { id?: string }).id;
+        if (!oldId) return;
+        setParticipants((prev) => prev.filter((p) => p.id !== oldId));
+        setBaseAvailabilities((prev) =>
+          prev.filter((a) => a.participant_id !== oldId),
+        );
+      }
+    },
+    [],
+  );
+
+  const handleAvailabilityChange = useCallback(
+    (
+      payload: RealtimePostgresChangesPayload<{
+        id: string;
+        participant_id: string;
+        available_date: string;
+      }>,
+    ) => {
+      if (payload.eventType === "INSERT") {
+        const row = payload.new;
+        if (!row.participant_id || !row.available_date) return;
+        if (!participantsRef.current.some((p) => p.id === row.participant_id))
+          return;
+        setBaseAvailabilities((prev) => {
+          if (
+            prev.some(
+              (a) =>
+                a.participant_id === row.participant_id &&
+                a.available_date === row.available_date,
+            )
+          )
+            return prev;
+          return [
+            ...prev,
+            {
+              participant_id: row.participant_id,
+              available_date: row.available_date,
+            },
+          ];
+        });
+      } else if (payload.eventType === "DELETE") {
+        const row = payload.old as {
+          participant_id?: string;
+          available_date?: string;
+        };
+        if (!row.participant_id || !row.available_date) return;
+        setBaseAvailabilities((prev) =>
+          prev.filter(
+            (a) =>
+              !(
+                a.participant_id === row.participant_id &&
+                a.available_date === row.available_date
+              ),
+          ),
+        );
+      }
+    },
+    [],
+  );
+
+  const handleMeetingChange = useCallback(
+    (
+      payload: RealtimePostgresChangesPayload<{
+        id: string;
+        confirmed_date: string | null;
+      }>,
+    ) => {
+      if (payload.eventType === "UPDATE") {
+        setConfirmedDate(payload.new.confirmed_date ?? null);
+      }
+    },
+    [],
+  );
+
+  useMeetingRealtime(meetingId, {
+    onParticipantChange: handleParticipantChange,
+    onAvailabilityChange: handleAvailabilityChange,
+    onMeetingChange: handleMeetingChange,
+  });
+
   function handleToggle(date: string) {
     if (!currentParticipantId) return;
+    setError(null);
     startTransition(async () => {
       applyOptimistic({ type: "toggle", date });
-      await toggleAvailability({
+      const result = await toggleAvailability({
         meetingId,
         participantId: currentParticipantId,
         date,
+      });
+      if (result?.error) {
+        setError(result.error);
+        return;
+      }
+      // realtime이 늦거나 못 받아도 일관성을 유지하기 위해 base를 직접 갱신
+      setBaseAvailabilities((prev) => {
+        const exists = prev.some(
+          (a) =>
+            a.participant_id === currentParticipantId &&
+            a.available_date === date,
+        );
+        if (exists) {
+          return prev.filter(
+            (a) =>
+              !(
+                a.participant_id === currentParticipantId &&
+                a.available_date === date
+              ),
+          );
+        }
+        return [
+          ...prev,
+          { participant_id: currentParticipantId, available_date: date },
+        ];
       });
     });
   }
@@ -153,22 +299,6 @@ export function ResultView({
         본인 이름·색 고르기
       </PrimaryFooterLink>
     );
-  } else if (isHost) {
-    footerPrimary = (
-      <PrimaryFooterButton
-        type="button"
-        onClick={handleConfirm}
-        disabled={!allAvailableOnSelected || isConfirming}
-      >
-        {isConfirming
-          ? "확정 중..."
-          : !selectedDate
-            ? "날짜를 선택해주세요"
-            : !allAvailableOnSelected
-              ? "모두 가능해야 확정 가능"
-              : "이 날로 확정"}
-      </PrimaryFooterButton>
-    );
   }
 
   return (
@@ -183,10 +313,15 @@ export function ResultView({
           isHost={isHost}
           isConfirmed={!!confirmedDate}
           shareUrl={shareUrl}
+          onUnconfirmed={() => setConfirmedDate(null)}
         />
       }
       footer={
-        <StickyFooter back={{ fallbackHref: "/" }} primary={footerPrimary} />
+        <StickyFooter
+          back={{ fallbackHref: "/" }}
+          error={error}
+          primary={footerPrimary}
+        />
       }
     >
       <div className="mx-auto w-full max-w-md space-y-5 px-4 py-4">
@@ -205,6 +340,7 @@ export function ResultView({
           onToggleDate={
             currentParticipantId && inputMode ? handleToggle : undefined
           }
+          confirmedDate={confirmedDate}
         />
 
         <SelectedDateSheet
@@ -212,6 +348,10 @@ export function ResultView({
           date={selectedDate}
           participants={participants}
           availSet={selectedAvailSet}
+          isHost={isHost && !confirmedDate}
+          isAllAvailable={allAvailableOnSelected}
+          isConfirming={isConfirming}
+          onConfirm={handleConfirm}
           onClose={() => setSelectedDate(null)}
         />
 
@@ -239,6 +379,7 @@ function ResultHeader({
   isHost,
   isConfirmed,
   shareUrl,
+  onUnconfirmed,
 }: {
   meetingId: string;
   title: string;
@@ -248,6 +389,7 @@ function ResultHeader({
   isHost: boolean;
   isConfirmed: boolean;
   shareUrl: string;
+  onUnconfirmed: () => void;
 }) {
   const rangeLabel = `${format(parseISO(dateRangeStart), "M.d")} ~ ${format(parseISO(dateRangeEnd), "M.d")}`;
   return (
@@ -281,6 +423,7 @@ function ResultHeader({
             <HostActionsMenu
               meetingId={meetingId}
               isConfirmed={isConfirmed}
+              onUnconfirmed={onUnconfirmed}
             />
           ) : null}
         </div>
@@ -332,24 +475,26 @@ function SelectedDateSheet({
   date,
   participants,
   availSet,
+  isHost,
+  isAllAvailable,
+  isConfirming,
+  onConfirm,
   onClose,
 }: {
   open: boolean;
   date: string | null;
   participants: Participant[];
   availSet: Set<string>;
+  isHost: boolean;
+  isAllAvailable: boolean;
+  isConfirming: boolean;
+  onConfirm: () => void;
   onClose: () => void;
 }) {
   const label = date
     ? format(parseISO(date), "M월 d일 EEEE", { locale: ko })
     : "";
-  const totalJoined = participants.filter((p) => p.color).length;
   const availCount = participants.filter((p) => availSet.has(p.id)).length;
-  const allAvailable =
-    !!date &&
-    totalJoined > 0 &&
-    participants.length === totalJoined &&
-    availCount === participants.length;
 
   const availList = participants.filter((p) => availSet.has(p.id));
   const unavailList = participants.filter(
@@ -366,10 +511,22 @@ function SelectedDateSheet({
       title={
         <span>
           {label}
-          {allAvailable ? <span className="ml-1 text-base">⭐</span> : null}
+          {isAllAvailable ? <span className="ml-1 text-base">⭐</span> : null}
         </span>
       }
       description={`${availCount} / ${participants.length}명 가능`}
+      footer={
+        isHost && isAllAvailable ? (
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isConfirming}
+            className="flex w-full items-center justify-center rounded-full bg-ink-deep px-6 py-4 text-base font-bold text-canvas transition active:bg-charcoal disabled:opacity-50"
+          >
+            {isConfirming ? "확정 중..." : "이 날로 약속 확정하기"}
+          </button>
+        ) : null
+      }
     >
       <div className="space-y-3 pb-3">
         {availList.length > 0 ? (

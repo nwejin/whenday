@@ -8,9 +8,14 @@ import { deleteMeeting, unconfirmMeeting } from "./actions";
 type Props = {
   meetingId: string;
   isConfirmed: boolean;
+  onUnconfirmed?: () => void;
 };
 
-export function HostActionsMenu({ meetingId, isConfirmed }: Props) {
+export function HostActionsMenu({
+  meetingId,
+  isConfirmed,
+  onUnconfirmed,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -22,7 +27,8 @@ export function HostActionsMenu({ meetingId, isConfirmed }: Props) {
     }
     setOpen(false);
     startTransition(async () => {
-      await unconfirmMeeting({ meetingId });
+      const result = await unconfirmMeeting({ meetingId });
+      if (!result?.error) onUnconfirmed?.();
     });
   }
 
