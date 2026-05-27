@@ -45,13 +45,21 @@ export default async function MeetingResultPage({
   const isHost = user?.id === meeting.host_id;
 
   const cookieStore = await cookies();
-  const currentParticipantId =
+  const cookieParticipantId =
     cookieStore.get(participantCookieKey(meeting.id))?.value ?? null;
-  const currentParticipant = (participants ?? []).find(
-    (p) => p.id === currentParticipantId,
+  const cookieParticipant = (participants ?? []).find(
+    (p) => p.id === cookieParticipantId,
   );
+  // cookie가 valid한 색 보유 participant를 가리키면 그걸 사용,
+  // 그게 아닌데 본인이 host면 display_order === 0 participant로 fallback
+  const hostFallbackParticipant =
+    isHost && (!cookieParticipant || !cookieParticipant.color)
+      ? (participants ?? []).find((p) => p.display_order === 0 && p.color)
+      : undefined;
   const validCurrentParticipantId =
-    currentParticipant && currentParticipant.color ? currentParticipantId : null;
+    cookieParticipant && cookieParticipant.color
+      ? cookieParticipantId
+      : (hostFallbackParticipant?.id ?? null);
 
   const headersList = await headers();
   const host = headersList.get("host") ?? "";
