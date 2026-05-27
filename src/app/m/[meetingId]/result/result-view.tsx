@@ -4,7 +4,7 @@ import {
   ReactNode,
   useCallback,
   useEffect,
-  useOptimistic,
+  useMemo,
   useRef,
   useState,
   useTransition,
@@ -16,13 +16,14 @@ import { AppShell } from "@/components/layout/app-shell";
 import { Dialog } from "@/components/ui/dialog";
 import { useMeetingRealtime } from "@/hooks/use-meeting-realtime";
 import {
+  PrimaryFooterButton,
   PrimaryFooterLink,
   StickyFooter,
 } from "@/components/layout/sticky-footer";
 import { Calendar } from "@/components/calendar/calendar";
 import { CopyShareLink } from "./copy-share-link";
 import { HostActionsMenu } from "./host-actions-menu";
-import { confirmMeeting, toggleAvailability } from "./actions";
+import { confirmMeeting, saveMyAvailabilities } from "./actions";
 
 type Participant = {
   id: string;
@@ -35,8 +36,6 @@ type Availability = {
   participant_id: string;
   available_date: string;
 };
-
-type ToggleAction = { type: "toggle"; date: string };
 
 function noop() {}
 
@@ -64,7 +63,7 @@ export function ResultView({
   shareUrl: string;
 }) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+  const [isSaving, startSaving] = useTransition();
   const [isConfirming, startConfirming] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -87,42 +86,49 @@ export function ResultView({
       ).length
     : 0;
   const canSwitchMode = !!currentParticipantId && !confirmedDate;
-  const [inputMode, setInputMode] = useState(
-    !!currentParticipantId && !initialConfirmedDate && myInitialAvailCount === 0,
+  const initialInputMode =
+    !!currentParticipantId && !initialConfirmedDate && myInitialAvailCount === 0;
+  const [inputMode, setInputMode] = useState(initialInputMode);
+
+  // 입력 모드일 때만 채워지는 본인 draft. 셀 탭/드래그는 이 set만 변경.
+  const [inputDraft, setInputDraft] = useState<Set<string> | null>(() =>
+    initialInputMode ? new Set<string>() : null,
   );
+
+  const myBaseSet = useMemo(() => {
+    if (!currentParticipantId) return new Set<string>();
+    const s = new Set<string>();
+    for (const a of baseAvailabilities) {
+      if (a.participant_id === currentParticipantId) s.add(a.available_date);
+    }
+    return s;
+  }, [baseAvailabilities, currentParticipantId]);
+
+  const isDirty = useMemo(() => {
+    if (!inputDraft) return false;
+    if (inputDraft.size !== myBaseSet.size) return true;
+    for (const d of inputDraft) if (!myBaseSet.has(d)) return true;
+    return false;
+  }, [inputDraft, myBaseSet]);
 
   function switchMode(next: boolean) {
-    setInputMode(next);
+    if (next === inputMode) return;
+    if (next) {
+      setInputDraft(new Set(myBaseSet));
+      setInputMode(true);
+      setSelectedDate(null);
+      return;
+    }
+    if (isDirty) {
+      const ok = window.confirm(
+        "저장하지 않은 변경사항이 있어요. 결과 보기로 갈까요?",
+      );
+      if (!ok) return;
+    }
+    setInputDraft(null);
+    setInputMode(false);
     setSelectedDate(null);
   }
-
-  const [availabilities, applyOptimistic] = useOptimistic(
-    baseAvailabilities,
-    (state, action: ToggleAction) => {
-      if (!currentParticipantId) return state;
-      const exists = state.some(
-        (a) =>
-          a.participant_id === currentParticipantId &&
-          a.available_date === action.date,
-      );
-      if (exists) {
-        return state.filter(
-          (a) =>
-            !(
-              a.participant_id === currentParticipantId &&
-              a.available_date === action.date
-            ),
-        );
-      }
-      return [
-        ...state,
-        {
-          participant_id: currentParticipantId,
-          available_date: action.date,
-        },
-      ];
-    },
-  );
 
   const currentParticipant = participants.find(
     (p) => p.id === currentParticipantId,
@@ -225,41 +231,50 @@ export function ResultView({
     onMeetingChange: handleMeetingChange,
   });
 
-  function handleToggle(date: string) {
-    if (!currentParticipantId) return;
+  function handleToggleDraft(date: string) {
+    setInputDraft((prev) => {
+      if (!prev) return prev;
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  }
+
+  function handleSave() {
+    if (!currentParticipantId || !inputDraft) return;
+    if (!isDirty) {
+      // 변경 없음 — 그냥 결과 모드로
+      setInputDraft(null);
+      setInputMode(false);
+      setSelectedDate(null);
+      return;
+    }
     setError(null);
-    startTransition(async () => {
-      applyOptimistic({ type: "toggle", date });
-      const result = await toggleAvailability({
+    const dates = Array.from(inputDraft);
+    startSaving(async () => {
+      const result = await saveMyAvailabilities({
         meetingId,
         participantId: currentParticipantId,
-        date,
+        dates,
       });
       if (result?.error) {
         setError(result.error);
         return;
       }
-      // realtime이 늦거나 못 받아도 일관성을 유지하기 위해 base를 직접 갱신
       setBaseAvailabilities((prev) => {
-        const exists = prev.some(
-          (a) =>
-            a.participant_id === currentParticipantId &&
-            a.available_date === date,
+        const others = prev.filter(
+          (a) => a.participant_id !== currentParticipantId,
         );
-        if (exists) {
-          return prev.filter(
-            (a) =>
-              !(
-                a.participant_id === currentParticipantId &&
-                a.available_date === date
-              ),
-          );
-        }
-        return [
-          ...prev,
-          { participant_id: currentParticipantId, available_date: date },
-        ];
+        const mine: Availability[] = dates.map((date) => ({
+          participant_id: currentParticipantId,
+          available_date: date,
+        }));
+        return [...others, ...mine];
       });
+      setInputDraft(null);
+      setInputMode(false);
+      setSelectedDate(null);
     });
   }
 
@@ -274,9 +289,26 @@ export function ResultView({
     });
   }
 
+  const displayedAvailabilities = useMemo<Availability[]>(() => {
+    if (!inputMode || !inputDraft || !currentParticipantId) {
+      return baseAvailabilities;
+    }
+    const others = baseAvailabilities.filter(
+      (a) => a.participant_id !== currentParticipantId,
+    );
+    const mine: Availability[] = [];
+    for (const date of inputDraft) {
+      mine.push({
+        participant_id: currentParticipantId,
+        available_date: date,
+      });
+    }
+    return [...others, ...mine];
+  }, [inputMode, inputDraft, baseAvailabilities, currentParticipantId]);
+
   const selectedAvailSet = new Set(
     selectedDate
-      ? availabilities
+      ? baseAvailabilities
           .filter((a) => a.available_date === selectedDate)
           .map((a) => a.participant_id)
       : [],
@@ -298,6 +330,22 @@ export function ResultView({
       <PrimaryFooterLink href={`/m/${meetingId}`}>
         본인 이름·색 고르기
       </PrimaryFooterLink>
+    );
+  } else if (inputMode) {
+    footerPrimary = (
+      <PrimaryFooterButton
+        type="button"
+        onClick={handleSave}
+        disabled={isSaving || !isDirty}
+      >
+        {isSaving ? "저장 중..." : "저장하기"}
+      </PrimaryFooterButton>
+    );
+  } else {
+    footerPrimary = (
+      <PrimaryFooterButton type="button" onClick={() => switchMode(true)}>
+        수정하기
+      </PrimaryFooterButton>
     );
   }
 
@@ -333,12 +381,12 @@ export function ResultView({
           dateRangeStart={dateRangeStart}
           dateRangeEnd={dateRangeEnd}
           participants={participants}
-          availabilities={availabilities}
+          availabilities={displayedAvailabilities}
           selectedDate={selectedDate}
           onSelectDate={inputMode ? noop : handleSelectDate}
           currentParticipantId={currentParticipantId ?? undefined}
           onToggleDate={
-            currentParticipantId && inputMode ? handleToggle : undefined
+            currentParticipantId && inputMode ? handleToggleDraft : undefined
           }
           confirmedDate={confirmedDate}
         />
@@ -439,8 +487,8 @@ function ModeSegmented({
   inputMode: boolean;
   onChange: (next: boolean) => void;
 }) {
-  const baseClass = "flex-1 rounded-full px-4 py-2 text-sm transition";
-  const activeClass = "bg-canvas font-bold text-ink-deep shadow-sm";
+  const baseClass = "flex-1 rounded-full px-4 py-2.5 text-sm transition";
+  const activeClass = "bg-ink-deep font-bold text-canvas shadow-sm";
   const inactiveClass = "text-charcoal active:text-ink-deep";
   return (
     <div

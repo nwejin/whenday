@@ -66,42 +66,87 @@ export async function deleteMeeting(input: { meetingId: string }) {
   redirect("/");
 }
 
-export async function toggleAvailability(input: {
+export async function saveMyAvailabilities(input: {
   meetingId: string;
   participantId: string;
-  date: string;
+  dates: string[];
 }) {
   const cookieStore = await cookies();
   const cookieParticipantId = cookieStore.get(
     participantCookieKey(input.meetingId),
   )?.value;
-  if (cookieParticipantId !== input.participantId) {
-    return { error: "권한이 없습니다" };
-  }
 
   const supabase = await createClient();
 
-  const { data: existing } = await supabase
-    .from("availabilities")
-    .select("id")
-    .eq("participant_id", input.participantId)
-    .eq("available_date", input.date)
-    .maybeSingle();
+  let authorized = cookieParticipantId === input.participantId;
 
-  if (existing) {
+  if (!authorized) {
+    // cookie가 없거나 mismatch — host이면 본인 participant에 한해 허용
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: meeting } = await supabase
+        .from("meetings")
+        .select("host_id")
+        .eq("id", input.meetingId)
+        .maybeSingle();
+      if (meeting?.host_id === user.id) {
+        const { data: participant } = await supabase
+          .from("participants")
+          .select("id")
+          .eq("id", input.participantId)
+          .eq("meeting_id", input.meetingId)
+          .maybeSingle();
+        authorized = !!participant;
+      }
+    }
+  }
+
+  if (!authorized) return { error: "권한이 없습니다" };
+
+  const { data: existing, error: existingError } = await supabase
+    .from("availabilities")
+    .select("id, available_date")
+    .eq("participant_id", input.participantId);
+
+  if (existingError) return { error: "저장에 실패했습니다" };
+
+  const desired = new Set(input.dates);
+  const currentByDate = new Map<string, string>();
+  for (const row of existing ?? []) {
+    currentByDate.set(row.available_date, row.id);
+  }
+
+  const toDeleteIds: string[] = [];
+  for (const [date, id] of currentByDate) {
+    if (!desired.has(date)) toDeleteIds.push(id);
+  }
+
+  const toInsertRows: { participant_id: string; available_date: string }[] = [];
+  for (const date of desired) {
+    if (!currentByDate.has(date)) {
+      toInsertRows.push({
+        participant_id: input.participantId,
+        available_date: date,
+      });
+    }
+  }
+
+  if (toDeleteIds.length > 0) {
     const { error } = await supabase
       .from("availabilities")
       .delete()
-      .eq("id", existing.id);
-    if (error) return { error: "저장에 실패했습니다" };
-  } else {
-    const { error } = await supabase.from("availabilities").insert({
-      participant_id: input.participantId,
-      available_date: input.date,
-    });
+      .in("id", toDeleteIds);
     if (error) return { error: "저장에 실패했습니다" };
   }
 
-  revalidatePath(`/m/${input.meetingId}/result`);
+  if (toInsertRows.length > 0) {
+    const { error } = await supabase
+      .from("availabilities")
+      .insert(toInsertRows);
+    if (error) return { error: "저장에 실패했습니다" };
+  }
+
   return { success: true };
 }
