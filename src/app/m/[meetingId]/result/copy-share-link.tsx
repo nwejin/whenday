@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, Share2 } from "lucide-react";
 
-export function CopyShareLink({ url }: { url: string }) {
+export function CopyShareLink({ url, label }: { url: string; label?: string }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
 
   async function copy() {
@@ -20,6 +20,23 @@ export function CopyShareLink({ url }: { url: string }) {
       setState("failed");
       setTimeout(() => setState("idle"), 2000);
     }
+  }
+
+  if (label) {
+    return (
+      <button
+        type="button"
+        onClick={copy}
+        className="flex w-full items-center justify-center gap-2 rounded-full border border-hairline bg-canvas px-6 py-4 text-base font-bold text-ink-deep transition active:bg-surface-soft"
+      >
+        {state === "copied" ? (
+          <Check className="h-4 w-4" />
+        ) : (
+          <Share2 className="h-4 w-4" />
+        )}
+        <span>{state === "copied" ? "복사됐어요" : label}</span>
+      </button>
+    );
   }
 
   return (

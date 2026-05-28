@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { format, parseISO } from "date-fns";
 import { ko } from "date-fns/locale";
 import { AppShell } from "@/components/layout/app-shell";
@@ -8,6 +9,7 @@ import {
   StickyFooter,
 } from "@/components/layout/sticky-footer";
 import { createClient } from "@/lib/supabase/server";
+import { CopyShareLink } from "../result/copy-share-link";
 
 type Params = Promise<{ meetingId: string }>;
 
@@ -34,6 +36,11 @@ export default async function ConfirmedPage({
     { locale: ko },
   );
 
+  const headersList = await headers();
+  const host = headersList.get("host") ?? "";
+  const proto = headersList.get("x-forwarded-proto") ?? "http";
+  const shareUrl = `${proto}://${host}/m/${meeting.id}/confirmed`;
+
   return (
     <AppShell
       header={<PageHeader title="약속 확정" />}
@@ -56,6 +63,9 @@ export default async function ConfirmedPage({
         <div className="mt-6 w-full space-y-2 rounded-3xl border border-hairline-soft bg-surface-soft px-6 py-8 text-center">
           <p className="text-sm text-slate">{meeting.title}</p>
           <p className="text-2xl font-bold text-ink-deep">{formattedDate}</p>
+        </div>
+        <div className="mt-6 w-full">
+          <CopyShareLink url={shareUrl} label="확정 링크 공유하기" />
         </div>
       </div>
     </AppShell>

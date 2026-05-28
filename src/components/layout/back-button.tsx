@@ -6,12 +6,18 @@ import { ChevronLeft } from "lucide-react";
 type Props = {
   fallbackHref?: string;
   label?: string;
+  onBeforeNavigate?: () => boolean;
 };
 
-export function BackButton({ fallbackHref = "/", label = "뒤로" }: Props) {
+export function BackButton({
+  fallbackHref = "/",
+  label = "뒤로",
+  onBeforeNavigate,
+}: Props) {
   const router = useRouter();
 
   function handleClick() {
+    if (onBeforeNavigate && !onBeforeNavigate()) return;
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
     } else {

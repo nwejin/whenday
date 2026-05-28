@@ -5,7 +5,11 @@ import { BackButton } from "./back-button";
 type MaxWidth = "sm" | "md";
 
 type Props = {
-  back?: { fallbackHref?: string; label?: string };
+  back?: {
+    fallbackHref?: string;
+    label?: string;
+    onBeforeNavigate?: () => boolean;
+  };
   primary?: ReactNode;
   error?: string | null;
   maxWidth?: MaxWidth;
@@ -38,6 +42,7 @@ export function StickyFooter({
             <BackButton
               fallbackHref={back.fallbackHref}
               label={back.label}
+              onBeforeNavigate={back.onBeforeNavigate}
             />
           ) : null}
           {primary ? <div className="flex-1">{primary}</div> : null}
