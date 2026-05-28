@@ -130,6 +130,13 @@ export function ResultView({
     setSelectedDate(null);
   }
 
+  function guardLeave() {
+    if (inputMode && isDirty) {
+      return window.confirm("저장하지 않은 변경사항이 있어요. 나갈까요?");
+    }
+    return true;
+  }
+
   const currentParticipant = participants.find(
     (p) => p.id === currentParticipantId,
   );
@@ -366,7 +373,7 @@ export function ResultView({
       }
       footer={
         <StickyFooter
-          back={{ fallbackHref: "/" }}
+          back={{ fallbackHref: "/", onBeforeNavigate: guardLeave }}
           error={error}
           primary={footerPrimary}
         />
@@ -375,6 +382,17 @@ export function ResultView({
       <div className="mx-auto w-full max-w-md space-y-5 px-4 py-4">
         {canSwitchMode ? (
           <ModeSegmented inputMode={inputMode} onChange={switchMode} />
+        ) : null}
+
+        {!inputMode && baseAvailabilities.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-hairline-soft bg-surface-soft px-4 py-5 text-center">
+            <p className="text-sm font-medium text-charcoal">
+              아직 아무도 가능한 날짜를 입력하지 않았어요
+            </p>
+            <p className="mt-1 text-xs text-stone">
+              링크를 공유해 참여자에게 입력을 요청해보세요
+            </p>
+          </div>
         ) : null}
 
         <Calendar
