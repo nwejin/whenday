@@ -40,6 +40,14 @@ export function EnterForm({
       .map((p) => p.color as string),
   );
 
+  // 아직 입장 안 한 이름을 앞으로, 입장 완료된 이름을 뒤로
+  const sortedParticipants = [...participants].sort((a, b) => {
+    const aDone = a.color ? 1 : 0;
+    const bDone = b.color ? 1 : 0;
+    if (aDone !== bDone) return aDone - bDone;
+    return a.display_order - b.display_order;
+  });
+
   const canEnter =
     !!selectedParticipantId && !!selectedColor && !usedColors.has(selectedColor);
 
@@ -90,7 +98,7 @@ export function EnterForm({
             1. 본인 이름 선택
           </h2>
           <ul className="flex flex-wrap gap-2">
-            {participants.map((p) => {
+            {sortedParticipants.map((p) => {
               const isTaken = !!p.color;
               const isSelected = p.id === selectedParticipantId;
               const className = isTaken
