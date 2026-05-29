@@ -313,6 +313,24 @@ export function ResultView({
     return [...others, ...mine];
   }, [inputMode, inputDraft, baseAvailabilities, currentParticipantId]);
 
+  const allAvailableCount = useMemo(() => {
+    if (participants.length === 0) return 0;
+    const byDate = new Map<string, Set<string>>();
+    for (const a of baseAvailabilities) {
+      let set = byDate.get(a.available_date);
+      if (!set) {
+        set = new Set();
+        byDate.set(a.available_date, set);
+      }
+      set.add(a.participant_id);
+    }
+    let count = 0;
+    for (const set of byDate.values()) {
+      if (participants.every((p) => set.has(p.id))) count++;
+    }
+    return count;
+  }, [baseAvailabilities, participants]);
+
   const selectedAvailSet = new Set(
     selectedDate
       ? baseAvailabilities
@@ -392,6 +410,19 @@ export function ResultView({
             <p className="mt-1 text-xs text-stone">
               링크를 공유해 참여자에게 입력을 요청해보세요
             </p>
+          </div>
+        ) : null}
+
+        {!inputMode && !confirmedDate && allAvailableCount > 0 ? (
+          <div className="rounded-2xl border border-hairline-soft bg-surface-soft px-4 py-3 text-center">
+            <p className="text-sm font-medium text-ink-deep">
+              ⭐ 전원 가능한 날이 {allAvailableCount}일 있어요
+            </p>
+            {isHost ? (
+              <p className="mt-0.5 text-xs text-slate">
+                날짜를 눌러 약속을 확정하세요
+              </p>
+            ) : null}
           </div>
         ) : null}
 
