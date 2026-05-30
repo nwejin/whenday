@@ -331,6 +331,13 @@ export function ResultView({
     return count;
   }, [baseAvailabilities, participants]);
 
+  // 가용시간을 1개 이상 저장한 참여자 = 입력 완료로 간주.
+  const submittedIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const a of baseAvailabilities) s.add(a.participant_id);
+    return s;
+  }, [baseAvailabilities]);
+
   const selectedAvailSet = new Set(
     selectedDate
       ? baseAvailabilities
@@ -455,6 +462,8 @@ export function ResultView({
         <ParticipantChips
           participants={participants}
           currentParticipantId={currentParticipantId}
+          submittedIds={submittedIds}
+          isHost={isHost}
         />
 
         {canSwitchMode && inputMode ? (
@@ -691,24 +700,47 @@ function ParticipantNameChip({
 function ParticipantChips({
   participants,
   currentParticipantId,
+  submittedIds,
+  isHost,
 }: {
   participants: Participant[];
   currentParticipantId: string | null;
+  submittedIds: Set<string>;
+  isHost: boolean;
 }) {
+  const total = participants.length;
+  const submittedCount = participants.filter((p) => submittedIds.has(p.id))
+    .length;
+
+  // 입장은 했지만(색 선택) 아직 입력하지 않은 사람 = 리마인드 대상.
+  const pending = participants.filter(
+    (p) => !!p.color && !submittedIds.has(p.id),
+  );
+  const pendingHint = buildPendingHint(pending);
+
   return (
     <section className="space-y-2">
-      <h3 className="text-sm font-medium text-stone">
-        참여자 ({participants.length}명)
-      </h3>
+      <div className="flex items-baseline justify-between gap-2">
+        <h3 className="text-sm font-medium text-stone">참여자 {total}명</h3>
+        <span className="shrink-0 text-sm font-medium text-charcoal">
+          입력 {submittedCount}/{total}
+        </span>
+      </div>
+      {isHost && pendingHint ? (
+        <p className="text-xs text-slate">{pendingHint} 아직 입력 전이에요</p>
+      ) : null}
       <ul className="flex flex-wrap gap-1.5">
         {participants.map((p) => {
           const isMe = p.id === currentParticipantId;
           const isJoined = !!p.color;
-          const className = isJoined
-            ? isMe
-              ? "flex items-center gap-1.5 rounded-full border-2 border-ink-deep bg-canvas px-3 py-1.5 text-sm font-bold text-ink-deep"
-              : "flex items-center gap-1.5 rounded-full border border-hairline bg-canvas px-3 py-1.5 text-sm text-ink-deep"
-            : "flex items-center gap-1.5 rounded-full border border-dashed border-hairline-soft px-3 py-1.5 text-sm text-stone";
+          const hasSubmitted = submittedIds.has(p.id);
+          const className = !isJoined
+            ? "flex items-center gap-1.5 rounded-full border border-dashed border-hairline-soft px-3 py-1.5 text-sm text-stone"
+            : !hasSubmitted
+              ? "flex items-center gap-1.5 rounded-full border border-hairline-soft bg-surface-soft px-3 py-1.5 text-sm text-slate"
+              : isMe
+                ? "flex items-center gap-1.5 rounded-full border-2 border-ink-deep bg-canvas px-3 py-1.5 text-sm font-bold text-ink-deep"
+                : "flex items-center gap-1.5 rounded-full border border-hairline bg-canvas px-3 py-1.5 text-sm text-ink-deep";
           return (
             <li key={p.id}>
               <span className={className}>
@@ -721,6 +753,9 @@ function ParticipantChips({
                 />
                 {p.name}
                 {isMe ? <span className="text-xs">나</span> : null}
+                {isJoined && !hasSubmitted ? (
+                  <span className="text-xs text-stone">입력 전</span>
+                ) : null}
               </span>
             </li>
           );
@@ -728,4 +763,11 @@ function ParticipantChips({
       </ul>
     </section>
   );
+}
+
+function buildPendingHint(pending: Participant[]): string | null {
+  if (pending.length === 0) return null;
+  const names = pending.map((p) => p.name);
+  if (names.length <= 2) return names.join("·");
+  return `${names.slice(0, 2).join("·")} 외 ${names.length - 2}명`;
 }
