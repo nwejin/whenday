@@ -8,7 +8,7 @@ type Props = {
   back?: {
     fallbackHref?: string;
     label?: string;
-    onBeforeNavigate?: () => boolean;
+    onBeforeNavigate?: () => boolean | Promise<boolean>;
   };
   primary?: ReactNode;
   error?: string | null;
