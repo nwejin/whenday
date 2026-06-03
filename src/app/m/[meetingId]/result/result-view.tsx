@@ -15,6 +15,7 @@ import { ko } from "date-fns/locale";
 import { AppShell } from "@/components/layout/app-shell";
 import { Dialog } from "@/components/ui/dialog";
 import { useMeetingRealtime } from "@/hooks/use-meeting-realtime";
+import { useConfirm } from "@/hooks/use-confirm";
 import {
   PrimaryFooterButton,
   PrimaryFooterLink,
@@ -62,10 +63,12 @@ export function ResultView({
   currentParticipantId: string | null;
   shareUrl: string;
 }) {
+  const { confirm, confirmDialog } = useConfirm();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
   const [isConfirming, startConfirming] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   const [participants, setParticipants] =
     useState<Participant[]>(initialParticipants);
@@ -111,7 +114,7 @@ export function ResultView({
     return false;
   }, [inputDraft, myBaseSet]);
 
-  function switchMode(next: boolean) {
+  async function switchMode(next: boolean) {
     if (next === inputMode) return;
     if (next) {
       setInputDraft(new Set(myBaseSet));
@@ -120,9 +123,11 @@ export function ResultView({
       return;
     }
     if (isDirty) {
-      const ok = window.confirm(
-        "저장하지 않은 변경사항이 있어요. 결과 보기로 갈까요?",
-      );
+      const ok = await confirm({
+        title: "결과 보기로 갈까요?",
+        message: "저장하지 않은 변경사항이 사라져요.",
+        confirmLabel: "결과 보기",
+      });
       if (!ok) return;
     }
     setInputDraft(null);
@@ -130,9 +135,13 @@ export function ResultView({
     setSelectedDate(null);
   }
 
-  function guardLeave() {
+  function guardLeave(): boolean | Promise<boolean> {
     if (inputMode && isDirty) {
-      return window.confirm("저장하지 않은 변경사항이 있어요. 나갈까요?");
+      return confirm({
+        title: "이 페이지를 나갈까요?",
+        message: "저장하지 않은 변경사항이 사라져요.",
+        confirmLabel: "나가기",
+      });
     }
     return true;
   }
@@ -291,8 +300,12 @@ export function ResultView({
 
   function handleConfirm() {
     if (!selectedDate) return;
+    setConfirmError(null);
     startConfirming(async () => {
-      await confirmMeeting({ meetingId, date: selectedDate });
+      const result = await confirmMeeting({ meetingId, date: selectedDate });
+      if (result?.error) {
+        setConfirmError(result.error);
+      }
     });
   }
 
@@ -455,9 +468,15 @@ export function ResultView({
           isHost={isHost && !confirmedDate}
           isAllAvailable={allAvailableOnSelected}
           isConfirming={isConfirming}
+          error={confirmError}
           onConfirm={handleConfirm}
-          onClose={() => setSelectedDate(null)}
+          onClose={() => {
+            setSelectedDate(null);
+            setConfirmError(null);
+          }}
         />
+
+        {confirmDialog}
 
         <ParticipantChips
           participants={participants}
@@ -584,6 +603,7 @@ function SelectedDateSheet({
   isHost,
   isAllAvailable,
   isConfirming,
+  error,
   onConfirm,
   onClose,
 }: {
@@ -594,6 +614,7 @@ function SelectedDateSheet({
   isHost: boolean;
   isAllAvailable: boolean;
   isConfirming: boolean;
+  error: string | null;
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -623,14 +644,21 @@ function SelectedDateSheet({
       description={`${availCount} / ${participants.length}명 가능`}
       footer={
         isHost && isAllAvailable ? (
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={isConfirming}
-            className="flex w-full items-center justify-center rounded-full bg-ink-deep px-6 py-4 text-base font-bold text-canvas transition active:bg-charcoal disabled:opacity-50"
-          >
-            {isConfirming ? "확정 중..." : "이 날로 약속 확정하기"}
-          </button>
+          <div>
+            {error ? (
+              <p className="mb-3 rounded-xl bg-critical/10 px-3 py-2 text-sm text-critical">
+                {error}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={isConfirming}
+              className="flex w-full items-center justify-center rounded-full bg-ink-deep px-6 py-4 text-base font-bold text-canvas transition active:bg-charcoal disabled:opacity-50"
+            >
+              {isConfirming ? "확정 중..." : "이 날로 약속 확정하기"}
+            </button>
+          </div>
         ) : null
       }
     >

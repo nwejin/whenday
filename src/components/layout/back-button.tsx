@@ -6,7 +6,7 @@ import { ChevronLeft } from "lucide-react";
 type Props = {
   fallbackHref?: string;
   label?: string;
-  onBeforeNavigate?: () => boolean;
+  onBeforeNavigate?: () => boolean | Promise<boolean>;
 };
 
 export function BackButton({
@@ -16,8 +16,8 @@ export function BackButton({
 }: Props) {
   const router = useRouter();
 
-  function handleClick() {
-    if (onBeforeNavigate && !onBeforeNavigate()) return;
+  async function handleClick() {
+    if (onBeforeNavigate && !(await onBeforeNavigate())) return;
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
     } else {
