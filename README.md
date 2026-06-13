@@ -16,32 +16,3 @@
 
 날짜 단위로만 조율합니다(시간 단위는 다루지 않음). 모든 응답은 **실시간으로 동기화**되어, 다른 참여자가 입력하면 새로고침 없이 바로 반영됩니다.
 
-## 화면 구성
-
-| 경로 | 역할 |
-| --- | --- |
-| `/` | 랜딩(비로그인) / 내가 만든 약속 목록(로그인) |
-| `/login` | 회원가입·로그인 |
-| `/new` | 약속 생성 — 제목·날짜 범위·참여자 명단 |
-| `/m/[id]` | 참여자 입장 — 이름·색 선택 |
-| `/m/[id]/result` | 캘린더 — 가능한 날 입력 + 결과 확인 + 확정 |
-| `/m/[id]/confirmed` | 확정된 날짜 공유 |
-
-## 기술 스택
-
-- **프레임워크**: Next.js 16 (App Router, Turbopack)
-- **언어**: TypeScript
-- **스타일링**: Tailwind CSS (디자인 토큰 기반)
-- **데이터 페칭**: TanStack Query v5
-- **DB / Auth / 실시간**: Supabase (Postgres + Auth + Realtime)
-- **날짜 유틸**: date-fns
-- **바텀시트**: Vaul
-- **아이콘**: lucide-react
-- **폰트**: Pretendard
-- **배포**: Vercel
-
-## 문서
-
-- [SPEC.md](./SPEC.md) — 전체 기획과 데이터 모델
-- [DESIGN.md](./DESIGN.md) — 디자인 가이드
-- [AGENTS.md](./AGENTS.md) — 작업 규칙
